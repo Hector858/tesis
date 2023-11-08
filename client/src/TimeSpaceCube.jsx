@@ -38,7 +38,7 @@ const TimeSpaceCubePlot = () => {
       <input type="file" onChange={handleFileChange} multiple />
       {combinedData.length > 0 && (
         <Plot
-          data={combinedData} // Combine and place your data in the appropriate format for Plotly.js
+          data={combinedData}
           layout={{ title: 'Time-Space Cube' }}
         />
       )}
