@@ -1,45 +1,63 @@
 import React, { useState } from 'react';
 import Plot from 'react-plotly.js';
+import axios from 'axios';
 
 const TimeSpaceCubePlot = () => {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState(null);
 
   const handleFileChange = (event) => {
-    const files = event.target.files;
-    const newFilesData = [];
+    const file = event.target.files[0];
 
-    // Read each file and extract data
-    for (const file of files) {
-      const reader = new FileReader();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const fileContent = e.target.result;
+      setData(JSON.parse(fileContent));
+    };
 
-      reader.onload = (e) => {
-        const fileContent = e.target.result;
-        newFilesData.push(JSON.parse(fileContent));
+    reader.readAsText(file);
+  };
 
-        // If data from all files is collected, set the combined data
-        if (newFilesData.length === files.length) {
-          setData(newFilesData);
-        }
-      };
-
-      reader.readAsText(file);
+  //probando los layout
+  const customLayout = {
+    scene: {
+      xaxis: {
+        backgroundcolor: "rgb(200, 200, 230)",
+        gridcolor: "rgb(255, 255, 255)",
+        showbackground: true,
+        zerolinecolor: "rgb(255, 255, 255)",
+      },
+      yaxis: {
+        backgroundcolor: "rgb(230, 200, 230)",
+        gridcolor: "rgb(255, 255, 255)",
+        showbackground: true,
+        zerolinecolor: "rgb(255, 255, 255)",
+      },
+      zaxis: {
+        backgroundcolor: "rgb(230, 230, 200)",
+        gridcolor: "rgb(255, 255, 255)",
+        showbackground: true,
+        zerolinecolor: "rgb(255, 255, 255)",
+      }
     }
   };
 
-  const combinedData = data.reduce((acc, curr) => {
-    if (curr && curr.length > 0) {
-      acc.push(...curr);
-    }
-    return acc;
-  }, []);
-
   return (
     <div>
-      <input type="file" onChange={handleFileChange} multiple />
-      {combinedData.length > 0 && (
+      <input type="file" onChange={handleFileChange} />
+      {data && (
         <Plot
-          data={combinedData}
-          layout={{ title: 'Time-Space Cube' }}
+          data={data}  // Coloca aquí tus datos en el formato adecuado para Plotly.js
+          layout={{
+            title: 'Time-Space Cube PRO',
+            scene: {
+              xaxis: { title: 'X-axis' },
+              yaxis: { title: 'Y-axis' },
+              zaxis: { title: 'Z-axis' },
+              ...customLayout.scene // Agregar el diseño personalizado
+            }
+          }}
+          config={{ responsive: true }}
+          useResizeHandler={true}
         />
       )}
     </div>
