@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import React, { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
 const CubeTimelineComponent = () => {
   const scene = useRef(null);
@@ -37,15 +37,22 @@ const CubeTimelineComponent = () => {
     animate();
 
     // Manejar eventos de redimensionamiento
-    window.addEventListener('resize', onWindowResize, false);
+    window.addEventListener("resize", onWindowResize, false);
 
     // Configuración de los controles de órbita
-    controls.current = new OrbitControls(camera.current, renderer.current.domElement);
+    controls.current = new OrbitControls(
+      camera.current,
+      renderer.current.domElement
+    );
   };
 
   const crearCubo = () => {
     const geometry = new THREE.PlaneGeometry(10, 10);
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.3 });
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.3,
+    });
     const plane1 = new THREE.Mesh(geometry, material);
     const plane2 = new THREE.Mesh(geometry, material);
     plane2.position.z = 10;
@@ -56,7 +63,7 @@ const CubeTimelineComponent = () => {
     const line = new THREE.LineSegments(
       edgeGeo,
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('white'),
+        color: new THREE.Color("white"),
         linewidth: 5,
       })
     );
@@ -74,12 +81,19 @@ const CubeTimelineComponent = () => {
       return;
     }
     const pointsData = data.points;
-    const curvePoints = pointsData.flatMap((point) => new THREE.Vector3(point.x, point.y, point.z));
+    const curvePoints = pointsData.flatMap(
+      (point) => new THREE.Vector3(point.x, point.y, point.z)
+    );
     const curve = new THREE.CatmullRomCurve3(curvePoints);
 
-    const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(50));
+    const geometry = new THREE.BufferGeometry().setFromPoints(
+      curve.getPoints(50)
+    );
 
-    const material = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 });
+    const material = new THREE.LineBasicMaterial({
+      color: 0xff0000,
+      linewidth: 5,
+    });
     thickLine.current = new THREE.Line(geometry, material);
 
     cube.current.add(thickLine.current);
@@ -87,15 +101,27 @@ const CubeTimelineComponent = () => {
 
   const esLineaBorde = (linea) => {
     const colorLinea = linea.material.color;
-    return colorLinea.equals(new THREE.Color('white'));
+    return colorLinea.equals(new THREE.Color("white"));
+  };
+
+  const cargarImagenDesdeURL = (url) => {
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(url, (texture) => {
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        opacity: 1,
+      }); // Establecer la opacidad a 1 (sin opacidad)
+      cube.current.children[0].material = material; // Actualizar el material del plane1
+    });
   };
 
   const loadPointsFromJSON = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
 
-    input.addEventListener('change', (event) => {
+    input.addEventListener("change", (event) => {
       const file = event.target.files[0];
 
       if (file) {
@@ -103,10 +129,15 @@ const CubeTimelineComponent = () => {
         reader.onload = async (e) => {
           try {
             const data = JSON.parse(e.target.result);
+
+            if ("imageURL" in data) {
+              cargarImagenDesdeURL(data.imageURL);
+            }
+
             addPointsFromJSON(data);
             agregarLineas(data);
           } catch (error) {
-            console.error('Error parsing JSON file:', error);
+            console.error("Error parsing JSON file:", error);
           }
         };
 
@@ -122,31 +153,37 @@ const CubeTimelineComponent = () => {
       return;
     }
     const pointsGeometry = new THREE.BufferGeometry();
-    const pointsMaterial = new THREE.PointsMaterial({ color: 0x800080, size: 5 });
+    const pointsMaterial = new THREE.PointsMaterial({
+      color: 0x800080,
+      size: 5,
+    });
 
     let positions = [];
 
-    if (data && typeof data === 'object' && 'points' in data) {
+    if (data && typeof data === "object" && "points" in data) {
       const pointsData = data.points;
       if (
         Array.isArray(pointsData) &&
         pointsData.length > 0 &&
-        typeof pointsData[0] === 'object' &&
-        'x' in pointsData[0] &&
-        'y' in pointsData[0] &&
-        'z' in pointsData[0]
+        typeof pointsData[0] === "object" &&
+        "x" in pointsData[0] &&
+        "y" in pointsData[0] &&
+        "z" in pointsData[0]
       ) {
         positions = pointsData.flatMap((point) => [point.x, point.y, point.z]);
       } else {
-        console.error('Invalid JSON format:', pointsData);
+        console.error("Invalid JSON format:", pointsData);
         return;
       }
     } else {
-      console.error('Invalid JSON format:', data);
+      console.error("Invalid JSON format:", data);
       return;
     }
 
-    pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    pointsGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(positions, 3)
+    );
 
     const points = new THREE.Points(pointsGeometry, pointsMaterial);
     cube.current.add(points);
@@ -210,11 +247,14 @@ const CubeTimelineComponent = () => {
           toRadians(deltaMove.y * 1),
           toRadians(deltaMove.x * 1),
           0,
-          'XYZ'
+          "XYZ"
         )
       );
 
-      cube.current.quaternion.multiplyQuaternions(deltaRotationQuaternion, cube.current.quaternion);
+      cube.current.quaternion.multiplyQuaternions(
+        deltaRotationQuaternion,
+        cube.current.quaternion
+      );
     }
 
     previousMousePosition.current = {
@@ -250,8 +290,12 @@ const CubeTimelineComponent = () => {
 
   return (
     <div>
-      <button onClick={togglePoints}>{showPoints ? "Ocultar Puntos" : "Mostrar Puntos"}</button>
-      <button onClick={toggleLines}>{showLines ? "Ocultar Líneas" : "Mostrar Líneas"}</button>
+      <button onClick={togglePoints}>
+        {showPoints ? "Ocultar Puntos" : "Mostrar Puntos"}
+      </button>
+      <button onClick={toggleLines}>
+        {showLines ? "Ocultar Líneas" : "Mostrar Líneas"}
+      </button>
       <button onClick={loadPointsFromJSON}>Cargar JSON</button>
     </div>
   );

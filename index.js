@@ -1,7 +1,10 @@
 const express = require('express');
 const path = require('path');
-const app = express();
+const cors = require('cors');
 const bodyParser = require('body-parser');
+
+const app = express();
+app.use(cors());
 
 // Configura el puerto en el que escuchará el servidor
 const PORT = process.env.PORT || 3000;
@@ -15,8 +18,6 @@ app.get('/', (req, res) => {
 });
 
 app.use(express.json());
-
-
 
 // Inicia el servidor en el puerto especificado
 app.listen(PORT, () => {
