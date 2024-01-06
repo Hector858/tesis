@@ -81,9 +81,29 @@ const CubeTimelineComponent = () => {
       return;
     }
     const pointsData = data.points;
-    const curvePoints = pointsData.flatMap(
-      (point) => new THREE.Vector3(point.x, point.y, point.z)
-    );
+    const curvePoints = pointsData.flatMap((point) => {
+      // Verificar si las coordenadas son números válidos
+      if (
+        typeof point.x === 'number' &&
+        typeof point.y === 'number' &&
+        typeof point.z === 'string'
+      ) {
+        const time = new Date(`1970-01-01T${point.z}`);
+        const hours = time.getHours();
+        const minutes = time.getMinutes();
+        const seconds = time.getSeconds();
+  
+        return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
+      } else {
+        console.warn('Invalid point coordinates:', point);
+        return [];
+      }
+    });
+  
+    if (curvePoints.length < 2) {
+      console.warn('Not enough valid points to create lines.');
+      return;
+    }
     const curve = new THREE.CatmullRomCurve3(curvePoints);
 
     const geometry = new THREE.BufferGeometry().setFromPoints(
@@ -170,7 +190,10 @@ const CubeTimelineComponent = () => {
         "y" in pointsData[0] &&
         "z" in pointsData[0]
       ) {
-        positions = pointsData.flatMap((point) => [point.x, point.y, point.z]);
+        positions = pointsData.flatMap((point) => {
+          const time = new Date(`1970-01-01T${point.z}`);
+          return [point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600];
+        });
       } else {
         console.error("Invalid JSON format:", pointsData);
         return;
