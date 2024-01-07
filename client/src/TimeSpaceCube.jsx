@@ -7,7 +7,6 @@ const CubeTimelineComponent = () => {
   const camera = useRef(null);
   const renderer = useRef(null);
   const cube = useRef(null);
-  const thickLine = useRef(null);
   const controls = useRef(null);
 
   let showPoints = true;
@@ -40,10 +39,7 @@ const CubeTimelineComponent = () => {
     window.addEventListener("resize", onWindowResize, false);
 
     // Configuración de los controles de órbita
-    controls.current = new OrbitControls(
-      camera.current,
-      renderer.current.domElement
-    );
+    controls.current = new OrbitControls(camera.current, renderer.current.domElement);
   };
 
   const crearCubo = () => {
@@ -80,43 +76,107 @@ const CubeTimelineComponent = () => {
     if (!showLines) {
       return;
     }
-    const pointsData = data.points;
-    const curvePoints = pointsData.flatMap((point) => {
-      // Verificar si las coordenadas son números válidos
-      if (
-        typeof point.x === 'number' &&
-        typeof point.y === 'number' &&
-        typeof point.z === 'string'
-      ) {
-        const time = new Date(`1970-01-01T${point.z}`);
-        const hours = time.getHours();
-        const minutes = time.getMinutes();
-        const seconds = time.getSeconds();
   
-        return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
-      } else {
-        console.warn('Invalid point coordinates:', point);
-        return [];
+    if ('points' in data) {
+      // Para un solo camino con la propiedad "points"
+      const pointsData = data.points;
+  
+      if (!Array.isArray(pointsData) || pointsData.length < 2) {
+        console.warn('Invalid path format: "points" array is missing or has insufficient points.');
+        return;
       }
-    });
   
-    if (curvePoints.length < 2) {
-      console.warn('Not enough valid points to create lines.');
-      return;
+      const curvePoints = pointsData.flatMap((point) => {
+        if (
+          typeof point.x === 'number' &&
+          typeof point.y === 'number' &&
+          typeof point.z === 'string'
+        ) {
+          const time = new Date(`1970-01-01T${point.z}`);
+          const hours = time.getHours();
+          const minutes = time.getMinutes();
+          const seconds = time.getSeconds();
+    
+          return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
+        } else {
+          console.warn('Invalid point coordinates:', point);
+          return [];
+        }
+      });
+    
+      if (curvePoints.length < 2) {
+        console.warn('Not enough valid points to create lines.');
+        return;
+      }
+  
+      const curve = new THREE.CatmullRomCurve3(curvePoints);
+  
+      const geometry = new THREE.BufferGeometry().setFromPoints(
+        curve.getPoints(50)
+      );
+  
+      const material = new THREE.LineBasicMaterial({
+        color: 0xff0000,
+        linewidth: 5,
+      });
+      
+      const thickLine = new THREE.Line(geometry, material);
+      cube.current.add(thickLine);
+    } else if ('paths' in data) {
+      // Para múltiples caminos con la propiedad "paths"
+      if (!Array.isArray(data.paths) || data.paths.length === 0) {
+        console.warn('Invalid JSON format: "paths" array is missing or empty.');
+        return;
+      }
+  
+      data.paths.forEach((path) => {
+        const pointsData = path.points;
+  
+        if (!Array.isArray(pointsData) || pointsData.length < 2) {
+          console.warn('Invalid path format: "points" array is missing or has insufficient points.');
+          return;
+        }
+  
+        const curvePoints = pointsData.flatMap((point) => {
+          if (
+            typeof point.x === 'number' &&
+            typeof point.y === 'number' &&
+            typeof point.z === 'string'
+          ) {
+            const time = new Date(`1970-01-01T${point.z}`);
+            const hours = time.getHours();
+            const minutes = time.getMinutes();
+            const seconds = time.getSeconds();
+      
+            return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
+          } else {
+            console.warn('Invalid point coordinates:', point);
+            return [];
+          }
+        });
+      
+        if (curvePoints.length < 2) {
+          console.warn('Not enough valid points to create lines.');
+          return;
+        }
+  
+        const curve = new THREE.CatmullRomCurve3(curvePoints);
+  
+        const geometry = new THREE.BufferGeometry().setFromPoints(
+          curve.getPoints(50)
+        );
+  
+        const material = new THREE.LineBasicMaterial({
+          color: 0xff0000,
+          linewidth: 5,
+        });
+        
+        const thickLine = new THREE.Line(geometry, material);
+        cube.current.add(thickLine);
+      });
+    } else {
+      console.warn('Invalid JSON format: "points" or "paths" property is missing.');
     }
-    const curve = new THREE.CatmullRomCurve3(curvePoints);
-
-    const geometry = new THREE.BufferGeometry().setFromPoints(
-      curve.getPoints(50)
-    );
-
-    const material = new THREE.LineBasicMaterial({
-      color: 0xff0000,
-      linewidth: 5,
-    });
-    thickLine.current = new THREE.Line(geometry, material);
-
-    cube.current.add(thickLine.current);
   };
 
   const esLineaBorde = (linea) => {
@@ -172,44 +232,83 @@ const CubeTimelineComponent = () => {
     if (!showPoints) {
       return;
     }
-    const pointsGeometry = new THREE.BufferGeometry();
-    const pointsMaterial = new THREE.PointsMaterial({
-      color: 0x800080,
-      size: 5,
-    });
-
-    let positions = [];
-
-    if (data && typeof data === "object" && "points" in data) {
+  
+    if ('points' in data) {
+      // Para un solo camino con la propiedad "points"
       const pointsData = data.points;
-      if (
-        Array.isArray(pointsData) &&
-        pointsData.length > 0 &&
-        typeof pointsData[0] === "object" &&
-        "x" in pointsData[0] &&
-        "y" in pointsData[0] &&
-        "z" in pointsData[0]
-      ) {
-        positions = pointsData.flatMap((point) => {
-          const time = new Date(`1970-01-01T${point.z}`);
-          return [point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600];
-        });
-      } else {
-        console.error("Invalid JSON format:", pointsData);
+  
+      if (!Array.isArray(pointsData) || pointsData.length === 0) {
+        console.warn('Invalid JSON format: "points" array is missing or empty.');
         return;
       }
+  
+      const positions = pointsData.flatMap((point) => {
+        if (
+          typeof point.x === 'number' &&
+          typeof point.y === 'number' &&
+          typeof point.z === 'string'
+        ) {
+          const time = new Date(`1970-01-01T${point.z}`);
+          return [point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600];
+        } else {
+          console.warn('Invalid point coordinates:', point);
+          return [];
+        }
+      });
+  
+      const pointsGeometry = new THREE.BufferGeometry();
+      const pointsMaterial = new THREE.PointsMaterial({
+        color: 0x800080,
+        size: 5,
+      });
+  
+      pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  
+      const points = new THREE.Points(pointsGeometry, pointsMaterial);
+      cube.current.add(points);
+    } else if ('paths' in data) {
+      // Para múltiples caminos con la propiedad "paths"
+      if (!Array.isArray(data.paths) || data.paths.length === 0) {
+        console.warn('Invalid JSON format: "paths" array is missing or empty.');
+        return;
+      }
+  
+      data.paths.forEach((path) => {
+        const pointsData = path.points;
+  
+        if (!Array.isArray(pointsData) || pointsData.length === 0) {
+          console.warn('Invalid path format: "points" array is missing or empty.');
+          return;
+        }
+  
+        const positions = pointsData.flatMap((point) => {
+          if (
+            typeof point.x === 'number' &&
+            typeof point.y === 'number' &&
+            typeof point.z === 'string'
+          ) {
+            const time = new Date(`1970-01-01T${point.z}`);
+            return [point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600];
+          } else {
+            console.warn('Invalid point coordinates:', point);
+            return [];
+          }
+        });
+  
+        const pointsGeometry = new THREE.BufferGeometry();
+        const pointsMaterial = new THREE.PointsMaterial({
+          color: 0x800080,
+          size: 5,
+        });
+  
+        pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  
+        const points = new THREE.Points(pointsGeometry, pointsMaterial);
+        cube.current.add(points);
+      });
     } else {
-      console.error("Invalid JSON format:", data);
-      return;
+      console.warn('Invalid JSON format: "points" or "paths" property is missing.');
     }
-
-    pointsGeometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(positions, 3)
-    );
-
-    const points = new THREE.Points(pointsGeometry, pointsMaterial);
-    cube.current.add(points);
   };
 
   const togglePoints = () => {
@@ -251,56 +350,8 @@ const CubeTimelineComponent = () => {
     }
   };
 
-  const isDragging = useRef(false);
-  const previousMousePosition = useRef({ x: 0, y: 0 });
-
-  const toRadians = (degrees) => {
-    return degrees * (Math.PI / 180);
-  };
-
-  const onMouseMove = (e) => {
-    const deltaMove = {
-      x: e.clientX - previousMousePosition.current.x,
-      y: e.clientY - previousMousePosition.current.y,
-    };
-
-    if (isDragging.current) {
-      const deltaRotationQuaternion = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(
-          toRadians(deltaMove.y * 1),
-          toRadians(deltaMove.x * 1),
-          0,
-          "XYZ"
-        )
-      );
-
-      cube.current.quaternion.multiplyQuaternions(
-        deltaRotationQuaternion,
-        cube.current.quaternion
-      );
-    }
-
-    previousMousePosition.current = {
-      x: e.clientX,
-      y: e.clientY,
-    };
-  };
-
-  const onMouseDown = (e) => {
-    isDragging.current = true;
-    previousMousePosition.current = {
-      x: e.clientX,
-      y: e.clientY,
-    };
-  };
-
-  const onMouseUp = () => {
-    isDragging.current = false;
-  };
-
   useEffect(() => {
     init();
-
     // Limpiar controles al desmontar el componente
     return () => {
       controls.current.dispose();
@@ -313,13 +364,15 @@ const CubeTimelineComponent = () => {
 
   return (
     <div>
-      <button onClick={togglePoints}>
-        {showPoints ? "Ocultar Puntos" : "Mostrar Puntos"}
-      </button>
-      <button onClick={toggleLines}>
-        {showLines ? "Ocultar Líneas" : "Mostrar Líneas"}
-      </button>
-      <button onClick={loadPointsFromJSON}>Cargar JSON</button>
+      <div>
+        <button onClick={togglePoints}>
+          {showPoints ? "Ocultar Puntos" : "Mostrar Puntos"}
+        </button>
+        <button onClick={toggleLines}>
+          {showLines ? "Ocultar Líneas" : "Mostrar Líneas"}
+        </button>
+        <button onClick={loadPointsFromJSON}>Cargar JSON</button>
+      </div>
     </div>
   );
 };
