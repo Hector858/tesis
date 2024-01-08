@@ -228,10 +228,13 @@ const CubeTimelineComponent = () => {
     input.click();
   };
 
+
+
   const addPointsFromJSON = (data) => {
     if (!showPoints) {
       return;
     }
+    const labelMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); // Color del texto
 
     if ('points' in data) {
       // Para un solo camino con la propiedad "points"
@@ -266,6 +269,14 @@ const CubeTimelineComponent = () => {
 
       const points = new THREE.Points(pointsGeometry, pointsMaterial);
       cube.current.add(points);
+
+      // Añadir etiquetas
+      pointsData.forEach((point) => {
+        const time = new Date(`1970-01-01T${point.z}`);
+        const label = createTextLabel(`${time.getHours()}:${time.getMinutes()}:${time.getSeconds()}`);
+        label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+        cube.current.add(label);
+      });
     } else if ('paths' in data) {
       // Para múltiples caminos con la propiedad "paths"
       if (!Array.isArray(data.paths) || data.paths.length === 0) {
@@ -305,11 +316,36 @@ const CubeTimelineComponent = () => {
 
         const points = new THREE.Points(pointsGeometry, pointsMaterial);
         cube.current.add(points);
+
+        // Añadir etiquetas
+        pointsData.forEach((point) => {
+          const time = new Date(`1970-01-01T${point.z}`);
+          const label = createTextLabel(`1:2:3`);
+          label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+          cube.current.add(label);
+        });
       });
     } else {
       console.warn('Invalid JSON format: "points" or "paths" property is missing.');
     }
   };
+
+  // Función para crear etiquetas de texto
+  function createTextLabel(text) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    context.font = 'Bold 50px Arial';
+    context.fillStyle = '#ffffff';
+    context.fillText(text, 0, 100);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+
+    const textGeometry = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
+    const textMesh = new THREE.Mesh(textGeometry, material);
+
+    return textMesh;
+  }
 
   const togglePoints = () => {
     showPoints = !showPoints;

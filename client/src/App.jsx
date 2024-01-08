@@ -4,7 +4,7 @@ import TimeSpaceCubePlot from './TimeSpaceCube'; // Asegúrate de especificar la
 const App = () => {
   return (
     <div>
-      <h1>Time-Space Cube Visualization with Plotly.js</h1>
+      <h1>Time-Space Cube Visualization</h1>
       <TimeSpaceCubePlot />
     </div>
   );
