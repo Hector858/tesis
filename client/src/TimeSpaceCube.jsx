@@ -331,7 +331,6 @@ const CubeTimelineComponent = () => {
   };
 
   // Función para crear etiquetas de texto
-  // Función para crear etiquetas de texto con fondo transparente y letras de color negro
   function createTextLabel(text) {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
