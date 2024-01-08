@@ -273,7 +273,7 @@ const CubeTimelineComponent = () => {
       // Añadir etiquetas
       pointsData.forEach((point) => {
         const time = new Date(`1970-01-01T${point.z}`);
-        const label = createTextLabel(`${time.getHours()}:${time.getMinutes()}:${time.getSeconds()}`);
+        const label = createTextLabel(`${point.label}`);
         label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
         cube.current.add(label);
       });
@@ -320,7 +320,7 @@ const CubeTimelineComponent = () => {
         // Añadir etiquetas
         pointsData.forEach((point) => {
           const time = new Date(`1970-01-01T${point.z}`);
-          const label = createTextLabel(`1:2:3`);
+          const label = createTextLabel(`${point.label}`);
           label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
           cube.current.add(label);
         });
@@ -331,17 +331,43 @@ const CubeTimelineComponent = () => {
   };
 
   // Función para crear etiquetas de texto
+  // Función para crear etiquetas de texto con fondo transparente y letras de color negro
   function createTextLabel(text) {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
+
+    // Ajustar el tamaño de la fuente y el color del texto
     context.font = 'Bold 50px Arial';
-    context.fillStyle = '#ffffff';
-    context.fillText(text, 0, 100);
+    context.fillStyle = '#000000'; // Color negro
+    context.textAlign = 'center'; // Alineación centrada
+    context.textBaseline = 'middle'; // Alineación vertical centrada
 
+    // Medir el tamaño del texto para ajustar el tamaño del canvas
+    const textMeasure = context.measureText(text);
+    canvas.width = textMeasure.width + 20; // Añadir espacio adicional
+    canvas.height = 70; // Ajustar según el tamaño de la fuente y preferencias
+
+    // Rellenar el fondo con transparencia
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dibujar el texto en el centro del canvas
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    // Configurar la textura con fondo transparente
     const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+    texture.needsUpdate = true; // Asegurarse de que la textura se actualice correctamente
 
-    const textGeometry = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
+    // Configurar el material con transparencia
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true, // Activar transparencia
+      side: THREE.DoubleSide
+    });
+
+    // Configurar la geometría del texto
+    const textGeometry = new THREE.PlaneGeometry(canvas.width / 25, canvas.height / 25);
+
+    // Configurar el mesh del texto
     const textMesh = new THREE.Mesh(textGeometry, material);
 
     return textMesh;
