@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 const CubeTimelineComponent = () => {
   const scene = useRef(null);
@@ -20,7 +21,7 @@ const CubeTimelineComponent = () => {
     camera.current = new THREE.OrthographicCamera(-10 * aspect, 10 * aspect, 10, -10, 0.1, 1000);
 
     renderer.current = new THREE.WebGLRenderer();
-    renderer.current.setSize(window.innerWidth - 20, window.innerHeight - 20);
+    renderer.current.setSize(window.innerWidth, window.innerHeight);
     renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
     document.body.appendChild(renderer.current.domElement);
 
@@ -40,7 +41,27 @@ const CubeTimelineComponent = () => {
 
     // Configuración de los controles de órbita
     controls.current = new OrbitControls(camera.current, renderer.current.domElement);
+
+    initGUI();
   };
+
+  const initGUI = () => {
+    const gui = new GUI();
+    // Agrega controles y configuraciones del GUI aquí
+    const folder = gui.addFolder('Opciones');
+  
+    folder.add({ MostrarPuntos: showPoints }, 'MostrarPuntos').onChange((value) => {
+      showPoints = value;
+      actualizarVisibilidad();
+    });
+  
+    folder.add({ MostrarLineas: showLines }, 'MostrarLineas').onChange((value) => {
+      showLines = value;
+      actualizarVisibilidad();
+    });
+  
+    folder.add({ CargarJSON: () => loadPointsFromJSON() }, 'CargarJSON');
+  };  
 
   const crearCubo = () => {
     const geometry = new THREE.PlaneGeometry(10, 10);
@@ -59,7 +80,7 @@ const CubeTimelineComponent = () => {
     const line = new THREE.LineSegments(
       edgeGeo,
       new THREE.LineBasicMaterial({
-        color: new THREE.Color("white"),
+        color: new THREE.Color("black"),
         linewidth: 5,
       })
     );
@@ -76,16 +97,16 @@ const CubeTimelineComponent = () => {
     if (!showLines) {
       return;
     }
-  
+
     if ('points' in data) {
       // Para un solo camino con la propiedad "points"
       const pointsData = data.points;
-  
+
       if (!Array.isArray(pointsData) || pointsData.length < 2) {
         console.warn('Invalid path format: "points" array is missing or has insufficient points.');
         return;
       }
-  
+
       const curvePoints = pointsData.flatMap((point) => {
         if (
           typeof point.x === 'number' &&
@@ -96,30 +117,30 @@ const CubeTimelineComponent = () => {
           const hours = time.getHours();
           const minutes = time.getMinutes();
           const seconds = time.getSeconds();
-    
+
           return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
         } else {
           console.warn('Invalid point coordinates:', point);
           return [];
         }
       });
-    
+
       if (curvePoints.length < 2) {
         console.warn('Not enough valid points to create lines.');
         return;
       }
-  
+
       const curve = new THREE.CatmullRomCurve3(curvePoints);
-  
+
       const geometry = new THREE.BufferGeometry().setFromPoints(
         curve.getPoints(50)
       );
-  
+
       const material = new THREE.LineBasicMaterial({
         color: 0xff0000,
         linewidth: 5,
       });
-      
+
       const thickLine = new THREE.Line(geometry, material);
       cube.current.add(thickLine);
     } else if ('paths' in data) {
@@ -128,15 +149,15 @@ const CubeTimelineComponent = () => {
         console.warn('Invalid JSON format: "paths" array is missing or empty.');
         return;
       }
-  
+
       data.paths.forEach((path) => {
         const pointsData = path.points;
-  
+
         if (!Array.isArray(pointsData) || pointsData.length < 2) {
           console.warn('Invalid path format: "points" array is missing or has insufficient points.');
           return;
         }
-  
+
         const curvePoints = pointsData.flatMap((point) => {
           if (
             typeof point.x === 'number' &&
@@ -147,30 +168,30 @@ const CubeTimelineComponent = () => {
             const hours = time.getHours();
             const minutes = time.getMinutes();
             const seconds = time.getSeconds();
-      
+
             return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
           } else {
             console.warn('Invalid point coordinates:', point);
             return [];
           }
         });
-      
+
         if (curvePoints.length < 2) {
           console.warn('Not enough valid points to create lines.');
           return;
         }
-  
+
         const curve = new THREE.CatmullRomCurve3(curvePoints);
-  
+
         const geometry = new THREE.BufferGeometry().setFromPoints(
           curve.getPoints(50)
         );
-  
+
         const material = new THREE.LineBasicMaterial({
           color: 0xff0000,
           linewidth: 5,
         });
-        
+
         const thickLine = new THREE.Line(geometry, material);
         cube.current.add(thickLine);
       });
@@ -181,7 +202,7 @@ const CubeTimelineComponent = () => {
 
   const esLineaBorde = (linea) => {
     const colorLinea = linea.material.color;
-    return colorLinea.equals(new THREE.Color("white"));
+    return colorLinea.equals(new THREE.Color("black"));
   };
 
   const cargarImagenDesdeURL = (url) => {
@@ -228,20 +249,23 @@ const CubeTimelineComponent = () => {
     input.click();
   };
 
+
+
   const addPointsFromJSON = (data) => {
     if (!showPoints) {
       return;
     }
-  
+    const labelMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); // Color del texto
+
     if ('points' in data) {
       // Para un solo camino con la propiedad "points"
       const pointsData = data.points;
-  
+
       if (!Array.isArray(pointsData) || pointsData.length === 0) {
         console.warn('Invalid JSON format: "points" array is missing or empty.');
         return;
       }
-  
+
       const positions = pointsData.flatMap((point) => {
         if (
           typeof point.x === 'number' &&
@@ -255,32 +279,40 @@ const CubeTimelineComponent = () => {
           return [];
         }
       });
-  
+
       const pointsGeometry = new THREE.BufferGeometry();
       const pointsMaterial = new THREE.PointsMaterial({
         color: 0x800080,
         size: 5,
       });
-  
+
       pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  
+
       const points = new THREE.Points(pointsGeometry, pointsMaterial);
       cube.current.add(points);
+
+      // Añadir etiquetas
+      pointsData.forEach((point) => {
+        const time = new Date(`1970-01-01T${point.z}`);
+        const label = createTextLabel(`${point.label}`);
+        label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+        cube.current.add(label);
+      });
     } else if ('paths' in data) {
       // Para múltiples caminos con la propiedad "paths"
       if (!Array.isArray(data.paths) || data.paths.length === 0) {
         console.warn('Invalid JSON format: "paths" array is missing or empty.');
         return;
       }
-  
+
       data.paths.forEach((path) => {
         const pointsData = path.points;
-  
+
         if (!Array.isArray(pointsData) || pointsData.length === 0) {
           console.warn('Invalid path format: "points" array is missing or empty.');
           return;
         }
-  
+
         const positions = pointsData.flatMap((point) => {
           if (
             typeof point.x === 'number' &&
@@ -294,32 +326,73 @@ const CubeTimelineComponent = () => {
             return [];
           }
         });
-  
+
         const pointsGeometry = new THREE.BufferGeometry();
         const pointsMaterial = new THREE.PointsMaterial({
           color: 0x800080,
           size: 5,
         });
-  
+
         pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  
+
         const points = new THREE.Points(pointsGeometry, pointsMaterial);
         cube.current.add(points);
+
+        // Añadir etiquetas
+        pointsData.forEach((point) => {
+          const time = new Date(`1970-01-01T${point.z}`);
+          const label = createTextLabel(`${point.label}`);
+          label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+          cube.current.add(label);
+        });
       });
     } else {
       console.warn('Invalid JSON format: "points" or "paths" property is missing.');
     }
   };
 
-  const togglePoints = () => {
-    showPoints = !showPoints;
-    actualizarVisibilidad();
-  };
+  // Función para crear etiquetas de texto
+  // Función para crear etiquetas de texto con fondo transparente y letras de color negro
+  function createTextLabel(text) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
 
-  const toggleLines = () => {
-    showLines = !showLines;
-    actualizarVisibilidad();
-  };
+    // Ajustar el tamaño de la fuente y el color del texto
+    context.font = 'Bold 50px Arial';
+    context.fillStyle = '#000000'; // Color negro
+    context.textAlign = 'center'; // Alineación centrada
+    context.textBaseline = 'middle'; // Alineación vertical centrada
+
+    // Medir el tamaño del texto para ajustar el tamaño del canvas
+    const textMeasure = context.measureText(text);
+    canvas.width = textMeasure.width + 20; // Añadir espacio adicional
+    canvas.height = 70; // Ajustar según el tamaño de la fuente y preferencias
+
+    // Rellenar el fondo con transparencia
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dibujar el texto en el centro del canvas
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    // Configurar la textura con fondo transparente
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true; // Asegurarse de que la textura se actualice correctamente
+
+    // Configurar el material con transparencia
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true, // Activar transparencia
+      side: THREE.DoubleSide
+    });
+
+    // Configurar la geometría del texto
+    const textGeometry = new THREE.PlaneGeometry(canvas.width / 25, canvas.height / 25);
+
+    // Configurar el mesh del texto
+    const textMesh = new THREE.Mesh(textGeometry, material);
+
+    return textMesh;
+  }
 
   const actualizarVisibilidad = () => {
     cube.current.children.forEach((child) => {
@@ -362,19 +435,7 @@ const CubeTimelineComponent = () => {
     actualizarVisibilidad();
   }, [showPoints, showLines]);
 
-  return (
-    <div>
-      <div>
-        <button onClick={togglePoints}>
-          {showPoints ? "Ocultar Puntos" : "Mostrar Puntos"}
-        </button>
-        <button onClick={toggleLines}>
-          {showLines ? "Ocultar Líneas" : "Mostrar Líneas"}
-        </button>
-        <button onClick={loadPointsFromJSON}>Cargar JSON</button>
-      </div>
-    </div>
-  );
+  return null;
 };
 
 export default CubeTimelineComponent;
