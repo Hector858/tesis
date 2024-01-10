@@ -12,6 +12,11 @@ const CubeTimelineComponent = () => {
   let showPoints = true;
   let showLines = true;
 
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let hoveredObject = null;
+  const labelsGroup = useRef(null);
+
   const init = () => {
     // Configuración básica
     scene.current = new THREE.Scene();
@@ -70,6 +75,10 @@ const CubeTimelineComponent = () => {
     cube.current.add(plane2);
     cube.current.add(line);
     scene.current.add(cube.current);
+
+    // Crear grupo para las etiquetas
+    labelsGroup.current = new THREE.Group();
+    cube.current.add(labelsGroup.current);
   };
 
   const agregarLineas = (data) => {
@@ -262,7 +271,7 @@ const CubeTimelineComponent = () => {
       const pointsGeometry = new THREE.BufferGeometry();
       const pointsMaterial = new THREE.PointsMaterial({
         color: 0x800080,
-        size: 5,
+        size: 25,
       });
 
       pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -309,7 +318,7 @@ const CubeTimelineComponent = () => {
         const pointsGeometry = new THREE.BufferGeometry();
         const pointsMaterial = new THREE.PointsMaterial({
           color: 0x800080,
-          size: 5,
+          size: 25,
         });
 
         pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -317,12 +326,15 @@ const CubeTimelineComponent = () => {
         const points = new THREE.Points(pointsGeometry, pointsMaterial);
         cube.current.add(points);
 
-        // Añadir etiquetas
         pointsData.forEach((point) => {
           const time = new Date(`1970-01-01T${point.z}`);
           const label = createTextLabel(`${point.label}`);
-          label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
-          cube.current.add(label);
+          label.position.set(
+            point.x,
+            point.y,
+            time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1
+          );
+          labelsGroup.current.add(label); // Añadir la etiqueta al grupo
         });
       });
     } else {
@@ -331,6 +343,7 @@ const CubeTimelineComponent = () => {
   };
 
   // Función para crear etiquetas de texto
+  // Función para crear etiquetas de texto con fondo transparente y letras de color negro
   function createTextLabel(text) {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -410,6 +423,58 @@ const CubeTimelineComponent = () => {
       renderer.current.render(scene.current, camera.current);
     }
   };
+
+  const handleMouseMove = (event) => {
+    // Normaliza las coordenadas del mouse (-1 to 1)
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Actualiza el rayo del ratón
+    raycaster.setFromCamera(mouse, camera.current);
+
+    // Realiza la intersección con los objetos relevantes (en este caso, los puntos)
+    const intersects = raycaster.intersectObjects(cube.current.children);
+
+    // Si hay intersecciones, resalta el objeto y actualiza el objeto enfocado
+    if (intersects.length > 0) {
+      if (hoveredObject !== intersects[0].object) {
+        if (hoveredObject) {
+          // Desactiva la etiqueta del objeto previamente enfocado
+          hoveredObject.material.opacity = 0.3;
+        }
+
+        hoveredObject = intersects[0].object;
+
+        // Activa la etiqueta del objeto enfocado
+        hoveredObject.material.opacity = 1.0;
+      }
+    } else {
+      // Si no hay intersecciones, restablece el objeto enfocado
+      if (hoveredObject) {
+        hoveredObject.material.opacity = 0.3;
+        hoveredObject = null;
+      }
+    }
+  };
+
+  const handleMouseClick = () => {
+    // Tu lógica al hacer clic en el objeto (puedes abrir un modal, por ejemplo)
+    if (hoveredObject) {
+      console.log("Clicked on:", hoveredObject);
+    }
+  };
+
+  useEffect(() => {
+    // Agrega los oyentes de eventos de ratón
+    window.addEventListener("mousemove", handleMouseMove, false);
+    window.addEventListener("click", handleMouseClick, false);
+
+    // Limpia los oyentes al desmontar el componente
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("click", handleMouseClick);
+    };
+  }, []);
 
   useEffect(() => {
     init();
