@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 const CubeTimelineComponent = () => {
   const scene = useRef(null);
@@ -12,10 +13,7 @@ const CubeTimelineComponent = () => {
   let showPoints = true;
   let showLines = true;
 
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-  let hoveredObject = null;
-  const labelsGroup = useRef(null);
+
 
   const init = () => {
     // Configuración básica
@@ -25,7 +23,7 @@ const CubeTimelineComponent = () => {
     camera.current = new THREE.OrthographicCamera(-10 * aspect, 10 * aspect, 10, -10, 0.1, 1000);
 
     renderer.current = new THREE.WebGLRenderer();
-    renderer.current.setSize(window.innerWidth - 20, window.innerHeight - 20);
+    renderer.current.setSize(window.innerWidth, window.innerHeight);
     renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
     document.body.appendChild(renderer.current.domElement);
 
@@ -45,6 +43,26 @@ const CubeTimelineComponent = () => {
 
     // Configuración de los controles de órbita
     controls.current = new OrbitControls(camera.current, renderer.current.domElement);
+
+    initGUI();
+  };
+
+  const initGUI = () => {
+    const gui = new GUI();
+    // Agrega controles y configuraciones del GUI aquí
+    const folder = gui.addFolder('Opciones');
+
+    folder.add({ MostrarPuntos: showPoints }, 'MostrarPuntos').onChange((value) => {
+      showPoints = value;
+      actualizarVisibilidad();
+    });
+
+    folder.add({ MostrarLineas: showLines }, 'MostrarLineas').onChange((value) => {
+      showLines = value;
+      actualizarVisibilidad();
+    });
+
+    folder.add({ CargarJSON: () => loadPointsFromJSON() }, 'CargarJSON');
   };
 
   const crearCubo = () => {
@@ -64,7 +82,7 @@ const CubeTimelineComponent = () => {
     const line = new THREE.LineSegments(
       edgeGeo,
       new THREE.LineBasicMaterial({
-        color: new THREE.Color("white"),
+        color: new THREE.Color("black"),
         linewidth: 5,
       })
     );
@@ -75,10 +93,6 @@ const CubeTimelineComponent = () => {
     cube.current.add(plane2);
     cube.current.add(line);
     scene.current.add(cube.current);
-
-    // Crear grupo para las etiquetas
-    labelsGroup.current = new THREE.Group();
-    cube.current.add(labelsGroup.current);
   };
 
   const agregarLineas = (data) => {
@@ -190,7 +204,7 @@ const CubeTimelineComponent = () => {
 
   const esLineaBorde = (linea) => {
     const colorLinea = linea.material.color;
-    return colorLinea.equals(new THREE.Color("white"));
+    return colorLinea.equals(new THREE.Color("black"));
   };
 
   const cargarImagenDesdeURL = (url) => {
@@ -271,7 +285,7 @@ const CubeTimelineComponent = () => {
       const pointsGeometry = new THREE.BufferGeometry();
       const pointsMaterial = new THREE.PointsMaterial({
         color: 0x800080,
-        size: 25,
+        size: 5,
       });
 
       pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -318,7 +332,7 @@ const CubeTimelineComponent = () => {
         const pointsGeometry = new THREE.BufferGeometry();
         const pointsMaterial = new THREE.PointsMaterial({
           color: 0x800080,
-          size: 25,
+          size: 5,
         });
 
         pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -326,15 +340,12 @@ const CubeTimelineComponent = () => {
         const points = new THREE.Points(pointsGeometry, pointsMaterial);
         cube.current.add(points);
 
+        // Añadir etiquetas
         pointsData.forEach((point) => {
           const time = new Date(`1970-01-01T${point.z}`);
           const label = createTextLabel(`${point.label}`);
-          label.position.set(
-            point.x,
-            point.y,
-            time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1
-          );
-          labelsGroup.current.add(label); // Añadir la etiqueta al grupo
+          label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+          cube.current.add(label);
         });
       });
     } else {
@@ -385,16 +396,6 @@ const CubeTimelineComponent = () => {
     return textMesh;
   }
 
-  const togglePoints = () => {
-    showPoints = !showPoints;
-    actualizarVisibilidad();
-  };
-
-  const toggleLines = () => {
-    showLines = !showLines;
-    actualizarVisibilidad();
-  };
-
   const actualizarVisibilidad = () => {
     cube.current.children.forEach((child) => {
       if (child instanceof THREE.Points) {
@@ -424,58 +425,6 @@ const CubeTimelineComponent = () => {
     }
   };
 
-  const handleMouseMove = (event) => {
-    // Normaliza las coordenadas del mouse (-1 to 1)
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    // Actualiza el rayo del ratón
-    raycaster.setFromCamera(mouse, camera.current);
-
-    // Realiza la intersección con los objetos relevantes (en este caso, los puntos)
-    const intersects = raycaster.intersectObjects(cube.current.children);
-
-    // Si hay intersecciones, resalta el objeto y actualiza el objeto enfocado
-    if (intersects.length > 0) {
-      if (hoveredObject !== intersects[0].object) {
-        if (hoveredObject) {
-          // Desactiva la etiqueta del objeto previamente enfocado
-          hoveredObject.material.opacity = 0.3;
-        }
-
-        hoveredObject = intersects[0].object;
-
-        // Activa la etiqueta del objeto enfocado
-        hoveredObject.material.opacity = 1.0;
-      }
-    } else {
-      // Si no hay intersecciones, restablece el objeto enfocado
-      if (hoveredObject) {
-        hoveredObject.material.opacity = 0.3;
-        hoveredObject = null;
-      }
-    }
-  };
-
-  const handleMouseClick = () => {
-    // Tu lógica al hacer clic en el objeto (puedes abrir un modal, por ejemplo)
-    if (hoveredObject) {
-      console.log("Clicked on:", hoveredObject);
-    }
-  };
-
-  useEffect(() => {
-    // Agrega los oyentes de eventos de ratón
-    window.addEventListener("mousemove", handleMouseMove, false);
-    window.addEventListener("click", handleMouseClick, false);
-
-    // Limpia los oyentes al desmontar el componente
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("click", handleMouseClick);
-    };
-  }, []);
-
   useEffect(() => {
     init();
     // Limpiar controles al desmontar el componente
@@ -488,19 +437,9 @@ const CubeTimelineComponent = () => {
     actualizarVisibilidad();
   }, [showPoints, showLines]);
 
-  return (
-    <div>
-      <div>
-        <button onClick={togglePoints}>
-          {showPoints ? "Ocultar Puntos" : "Mostrar Puntos"}
-        </button>
-        <button onClick={toggleLines}>
-          {showLines ? "Ocultar Líneas" : "Mostrar Líneas"}
-        </button>
-        <button onClick={loadPointsFromJSON}>Cargar JSON</button>
-      </div>
-    </div>
-  );
+
+
+  return null;
 };
 
 export default CubeTimelineComponent;
