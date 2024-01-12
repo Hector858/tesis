@@ -10,6 +10,10 @@ const CubeTimelineComponent = () => {
   const cube = useRef(null);
   const controls = useRef(null);
 
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let labelDiv = null;
+
   let showPoints = true;
   let showLines = true;
 
@@ -25,6 +29,17 @@ const CubeTimelineComponent = () => {
     renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
     document.body.appendChild(renderer.current.domElement);
 
+    labelDiv = document.createElement('div');
+    labelDiv.style.position = 'absolute';
+    labelDiv.style.pointerEvents = 'none';
+    labelDiv.style.zIndex = '10';
+    labelDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+    labelDiv.style.padding = '5px';
+    labelDiv.style.borderRadius = '5px';
+    labelDiv.style.display = 'none';
+
+    document.body.appendChild(labelDiv);
+
     // Configuración de la cámara
     camera.current.position.set(0, 0, 20);
     crearCubo();
@@ -39,10 +54,69 @@ const CubeTimelineComponent = () => {
     // Manejar eventos de redimensionamiento
     window.addEventListener("resize", onWindowResize, false);
 
+    // Configuración del evento de mover el mouse
+    document.addEventListener('mousemove', onMouseMove, false);
+
     // Configuración de los controles de órbita
     controls.current = new OrbitControls(camera.current, renderer.current.domElement);
 
     initGUI();
+  };
+
+  const formatTime = (hours) => {
+    const totalSeconds = hours * 3600;
+    const formattedHours = Math.floor(hours).toString().padStart(2, '0');
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const formattedMinutes = minutes.toString().padStart(2, '0');
+    const seconds = Math.floor(totalSeconds % 60);
+    const formattedSeconds = seconds.toString().padStart(2, '0');
+  
+    return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
+  };
+
+  const onMouseMove = (event) => {
+    // Calcula la posición normalizada del mouse en el rango [-1, 1]
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Actualiza el raycaster con la posición del mouse
+    raycaster.setFromCamera(mouse, camera.current);
+
+    // Comprueba la intersección con los objetos Points
+    const intersects = raycaster.intersectObjects(scene.current.children, true);
+
+    if (intersects.length > 0) {
+      // Muestra la información del punto en la consola (puedes personalizar esto)
+      const selectedObject = intersects[0].object;
+
+      if (selectedObject.material instanceof THREE.PointsMaterial) {
+        const position = selectedObject.geometry.attributes.position;
+        const index = intersects[0].index;
+        const x = position.getX(index);
+        const y = position.getY(index);
+        const z = position.getZ(index);
+        const formattedTime = formatTime(z);
+        
+        // Actualiza la posición de la etiqueta div
+        labelDiv.style.left = `${event.clientX + 10}px`;
+        labelDiv.style.top = `${event.clientY - 20}px`;
+
+        // Muestra la información en la etiqueta
+        labelDiv.innerText = `Point: x=${x.toFixed(2)}, y=${y.toFixed(2)}, z=${formattedTime}`;
+
+
+        // Muestra la etiqueta
+        labelDiv.style.display = 'block';
+
+        //console.log(`Point information: x=${x}, y=${y}, z=${z}`);
+      }else {
+        // Oculta la etiqueta si no hay intersección con un punto
+        labelDiv.style.display = 'none';
+      }
+    }else {
+      // Oculta la etiqueta si no hay intersección con un punto
+      labelDiv.style.display = 'none';
+    }
   };
 
   const initGUI = () => {
@@ -283,7 +357,7 @@ const CubeTimelineComponent = () => {
       const pointsGeometry = new THREE.BufferGeometry();
       const pointsMaterial = new THREE.PointsMaterial({
         color: 0x800080,
-        size: 5,
+        size: 15,
       });
 
       pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -330,7 +404,7 @@ const CubeTimelineComponent = () => {
         const pointsGeometry = new THREE.BufferGeometry();
         const pointsMaterial = new THREE.PointsMaterial({
           color: 0x800080,
-          size: 5,
+          size: 15,
         });
 
         pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -412,7 +486,7 @@ const CubeTimelineComponent = () => {
     camera.current.bottom = -10;
     camera.current.updateProjectionMatrix();
 
-    renderer.current.setSize(window.innerWidth - 20, window.innerHeight - 20);
+    renderer.current.setSize(window.innerWidth, window.innerHeight);
   };
 
   const animate = () => {
