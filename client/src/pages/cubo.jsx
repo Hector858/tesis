@@ -39,29 +39,34 @@ const Cubo = () => {
         grid.rotation.x = Math.PI / 4;
         grid.rotation.y = Math.PI / 4;
 
+
+
+        // Configuración de los controles de órbita
+        controls.current = new OrbitControls(camera.current, renderer.current.domElement);
+        container.appendChild(controls.current.domElement); // Adjuntar controles al nuevo contenedor
+
+
+
         // Llamar a la animación
         animate();
 
         // Manejar eventos de redimensionamiento
         window.addEventListener("resize", onWindowResize, false);
 
-        // Configuración de los controles de órbita
-        controls.current = new OrbitControls(camera.current, renderer.current.domElement);
+        initGUI(container);
 
-        initGUI();
-
-        initFullscreenButton();
+        //initFullscreenButton();
     };
 
-    const initFullscreenButton = () => {
-        const fullscreenButton = document.createElement("button");
-        fullscreenButton.innerHTML = "Fullscreen";
-        fullscreenButton.style.position = "absolute";
-        fullscreenButton.style.top = "10px";
-        fullscreenButton.style.right = "10px";
-        fullscreenButton.addEventListener("click", toggleFullscreen);
-        document.body.appendChild(fullscreenButton);
-    };
+    // const initFullscreenButton = () => {
+    //     const fullscreenButton = document.createElement("button");
+    //     fullscreenButton.innerHTML = "Fullscreen";
+    //     fullscreenButton.style.position = "absolute";
+    //     fullscreenButton.style.top = "10px";
+    //     fullscreenButton.style.right = "10px";
+    //     fullscreenButton.addEventListener("click", toggleFullscreen);
+    //     document.body.appendChild(fullscreenButton);
+    // };
 
     const toggleFullscreen = () => {
         const container = document.getElementById("scene-container");
@@ -77,9 +82,21 @@ const Cubo = () => {
         }
     };
 
-    const initGUI = () => {
+    const exitFullscreen = () => {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+    };
+
+    const initGUI = (container) => {
         const guiContainer = document.createElement("div");
-        document.body.appendChild(guiContainer);
+        container.appendChild(guiContainer);
 
         // Agrega controles y configuraciones del GUI aquí
         const gui = new GUI({ autoPlace: false });
@@ -95,12 +112,24 @@ const Cubo = () => {
             actualizarVisibilidad();
         });
 
+        folder.add({ Fullscreen: false }, "Fullscreen").onChange((value) => {
+            if (value) {
+                toggleFullscreen();
+            } else {
+                exitFullscreen();
+            }
+            // Restaurar el valor a false para que el botón esté disponible para el próximo clic
+            folder.__controllers[0].setValue(false);
+        });
+
         folder.add({ CargarJSON: () => loadPointsFromJSON() }, "CargarJSON");
+
+
 
         guiContainer.appendChild(gui.domElement);
         gui.domElement.style.position = "absolute";
-        gui.domElement.style.top = "90px"; // Puedes ajustar este valor según tu diseño
-        gui.domElement.style.right = "10px"; // Puedes ajustar este valor según tu diseño
+        gui.domElement.style.top = "90px";
+        gui.domElement.style.right = "10px";
     };
 
     const crearCubo = () => {
