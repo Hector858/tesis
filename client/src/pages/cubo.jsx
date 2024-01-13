@@ -12,7 +12,7 @@ const Cubo = () => {
 
     let showPoints = true;
     let showLines = true;
-
+    let showLabels = true;
 
 
     const init = () => {
@@ -109,6 +109,11 @@ const Cubo = () => {
 
         folder.add({ MostrarLineas: showLines }, "MostrarLineas").onChange((value) => {
             showLines = value;
+            actualizarVisibilidad();
+        });
+
+        folder.add({ MostrarEtiquetas: true }, "MostrarEtiquetas").onChange((value) => {
+            showLabels = value;
             actualizarVisibilidad();
         });
 
@@ -411,7 +416,8 @@ const Cubo = () => {
                 pointsData.forEach((point) => {
                     const time = new Date(`1970-01-01T${point.z}`);
                     const label = createTextLabel(`${point.label}`);
-                    label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+                    label.userData.isLabel = true; // Marcar la etiqueta como tal
+                    label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1);
                     cube.current.add(label);
                 });
             });
@@ -469,6 +475,8 @@ const Cubo = () => {
                 child.visible = showPoints;
             } else if (child instanceof THREE.Line && !esLineaBorde(child)) {
                 child.visible = showLines;
+            } else if (child instanceof THREE.Mesh && child.userData.isLabel) {
+                child.visible = showLabels;
             }
         });
     };
