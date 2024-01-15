@@ -2,6 +2,9 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 
 const Cubo = () => {
     const scene = useRef(null);
@@ -69,7 +72,7 @@ const Cubo = () => {
         window.addEventListener("resize", onWindowResize, false);
 
         // Configuración del evento de mover el mouse
-        window.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mousemove', onMouseMove, false);
 
         initGUI(container);
     };
@@ -113,7 +116,7 @@ const Cubo = () => {
             labelDiv.style.top = `${event.clientY - 20}px`;
     
             // Muestra la información en la etiqueta
-            labelDiv.innerText = `Point: x=${x.toFixed(2)}, y=${y.toFixed(2)}, z=${formattedTime}`;
+            labelDiv.innerText = `Point: x=${x.toFixed(2)}, y=${y.toFixed(2)}, Hora=${formattedTime}`;
     
     
             // Muestra la etiqueta
@@ -262,17 +265,33 @@ const Cubo = () => {
             }
 
             const curve = new THREE.CatmullRomCurve3(curvePoints);
+            const points = curve.getPoints(50);
+            const positions = points.flatMap(v => [v.x, v.y, v.z]);
 
-            const geometry = new THREE.BufferGeometry().setFromPoints(
-                curve.getPoints(50)
-            );
+            const colors = [];
+            const divisions = Math.round(25 * curvePoints.length);
+            const color = new THREE.Color();
 
-            const material = new THREE.LineBasicMaterial({
-                color: 0xff0000,
+            for (let i = 0, l = divisions; i < l; i++) {
+                const t = i / l;
+                color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                colors.push(color.r, color.g, color.b);
+            }
+
+            const geometry = new LineGeometry().setPositions(positions);
+            geometry.setColors(colors);
+
+            const material = new LineMaterial({
+                color: 0xffffff,
                 linewidth: 5,
+                resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                dashed: false,
+                transparent: true,
+                vertexColors: true,
             });
 
-            const thickLine = new THREE.Line(geometry, material);
+            const thickLine = new Line2(geometry, material);
+            thickLine.computeLineDistances();
             cube.current.add(thickLine);
         } else if ('paths' in data) {
             // Para múltiples caminos con la propiedad "paths"
@@ -313,17 +332,33 @@ const Cubo = () => {
                 }
 
                 const curve = new THREE.CatmullRomCurve3(curvePoints);
+                const points = curve.getPoints(50);
+                const positions = points.flatMap(v => [v.x, v.y, v.z]);
 
-                const geometry = new THREE.BufferGeometry().setFromPoints(
-                    curve.getPoints(50)
-                );
+                const colors = [];
+                const divisions = Math.round(25 * curvePoints.length);
+                const color = new THREE.Color();
 
-                const material = new THREE.LineBasicMaterial({
-                    color: 0xff0000,
+                for (let i = 0, l = divisions; i < l; i++) {
+                    const t = i / l;
+                    color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                    colors.push(color.r, color.g, color.b);
+                }
+
+                const geometry = new LineGeometry().setPositions(positions);
+                geometry.setColors(colors);
+
+                const material = new LineMaterial({
+                    color: 0xffffff,
                     linewidth: 5,
+                    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                    dashed: false,
+                    transparent: true,
+                    vertexColors: true,
                 });
 
-                const thickLine = new THREE.Line(geometry, material);
+                const thickLine = new Line2(geometry, material);
+                thickLine.computeLineDistances();
                 cube.current.add(thickLine);
             });
         } else {
@@ -470,7 +505,7 @@ const Cubo = () => {
         cube.current.children.forEach((child) => {
             if (child instanceof THREE.Points) {
                 child.visible = showPoints;
-            } else if (child instanceof THREE.Line && !esLineaBorde(child)) {
+            } else if (child instanceof Line2 && !esLineaBorde(child)) {
                 child.visible = showLines;
             } else if (child instanceof THREE.Mesh && child.userData.isLabel) {
                 child.visible = showLabels;
@@ -486,7 +521,7 @@ const Cubo = () => {
         camera.current.bottom = -10;
         camera.current.updateProjectionMatrix();
 
-        renderer.current.setSize(window.innerWidth - 20, window.innerHeight - 20);
+        renderer.current.setSize(window.innerWidth, window.innerHeight);
     };
 
     const animate = () => {
