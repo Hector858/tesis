@@ -32,8 +32,6 @@ const Cubo = () => {
         renderer.current = new THREE.WebGLRenderer();
         renderer.current.setSize(window.innerWidth, window.innerHeight);
         renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
-
-
         // Crear contenedor para la escena y los controles
         const container = document.getElementById("scene-container");
         container.appendChild(renderer.current.domElement);
@@ -57,13 +55,9 @@ const Cubo = () => {
         grid.rotation.x = Math.PI / 4;
         grid.rotation.y = Math.PI / 4;
 
-
-
         // Configuración de los controles de órbita
         controls.current = new OrbitControls(camera.current, renderer.current.domElement);
         container.appendChild(controls.current.domElement); // Adjuntar controles al nuevo contenedor
-
-
 
         // Llamar a la animación
         animate();
@@ -86,9 +80,9 @@ const Cubo = () => {
         const formattedSeconds = seconds.toString().padStart(2, '0');
       
         return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
-      };
+    };
     
-      const onMouseMove = (event) => {
+    const onMouseMove = (event) => {
         // Calcula la posición normalizada del mouse en el rango [-1, 1]
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -98,17 +92,19 @@ const Cubo = () => {
     
         // Comprueba la intersección con los objetos Points
         const intersects = raycaster.intersectObjects(scene.current.children, true);
+
+        const spheres = intersects.filter((intersection) => {
+            const object = intersection.object;
+            return object instanceof THREE.Mesh && object.isPlane !== true;
+        });
     
-        if (intersects.length > 0) {
-          // Muestra la información del punto en la consola (puedes personalizar esto)
-          const selectedObject = intersects[0].object;
-    
-          if (selectedObject.material instanceof THREE.PointsMaterial) {
-            const position = selectedObject.geometry.attributes.position;
-            const index = intersects[0].index;
-            const x = position.getX(index);
-            const y = position.getY(index);
-            const z = position.getZ(index);
+        if (spheres.length > 0) {
+            // Muestra la información del punto en la consola
+            const selectedObject = intersects[0].object;
+            const position = selectedObject.position;
+            const x = position.x;
+            const y = position.y;
+            const z = position.z;
             const formattedTime = formatTime(z);
             
             // Actualiza la posición de la etiqueta div
@@ -118,20 +114,15 @@ const Cubo = () => {
             // Muestra la información en la etiqueta
             labelDiv.innerText = `Point: x=${x.toFixed(2)}, y=${y.toFixed(2)}, Hora=${formattedTime}`;
     
-    
             // Muestra la etiqueta
             labelDiv.style.display = 'block';
     
             //console.log(`Point information: x=${x}, y=${y}, z=${z}`);
-          }else {
-            // Oculta la etiqueta si no hay intersección con un punto
-            labelDiv.style.display = 'none';
-          }
         }else {
           // Oculta la etiqueta si no hay intersección con un punto
           labelDiv.style.display = 'none';
         }
-      };
+    };
 
     const toggleFullscreen = () => {
         const container = document.getElementById("scene-container");
@@ -184,12 +175,10 @@ const Cubo = () => {
                 exitFullscreen();
             }
             // Restaurar el valor a false para que el botón esté disponible para el próximo clic
-            folder.__controllers[0].setValue(false);
+            //folder.__controllers[0].setValue(false);
         });
 
         folder.add({ CargarJSON: () => loadPointsFromJSON() }, "CargarJSON");
-
-
 
         guiContainer.appendChild(gui.domElement);
         gui.domElement.style.position = "absolute";
@@ -206,6 +195,10 @@ const Cubo = () => {
         });
         const plane1 = new THREE.Mesh(geometry, material);
         const plane2 = new THREE.Mesh(geometry, material);
+        // Asignar propiedad adicional a los planos
+        plane1.isPlane = true;
+        plane2.isPlane = true;
+
         plane2.position.z = 10;
 
         const boxGeo = new THREE.BoxGeometry(10, 10, 10);
@@ -415,13 +408,10 @@ const Cubo = () => {
         input.click();
     };
 
-
-
     const addPointsFromJSON = (data) => {
         if (!showPoints) {
             return;
         }
-        const labelMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); // Color del texto
 
         if ('points' in data) {
             // Para un solo camino con la propiedad "points"
@@ -432,30 +422,27 @@ const Cubo = () => {
                 return;
             }
 
-            const positions = pointsData.flatMap((point) => {
+            const spheres = new THREE.Group();
+
+            pointsData.forEach((point) => {
                 if (
                     typeof point.x === 'number' &&
                     typeof point.y === 'number' &&
                     typeof point.z === 'string'
                 ) {
                     const time = new Date(`1970-01-01T${point.z}`);
-                    return [point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600];
+                    const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16); // Ajusta el radio y la calidad según tus preferencias
+                    const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+                    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+
+                    sphere.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600);
+                    spheres.add(sphere);
                 } else {
                     console.warn('Invalid point coordinates:', point);
-                    return [];
                 }
             });
 
-            const pointsGeometry = new THREE.BufferGeometry();
-            const pointsMaterial = new THREE.PointsMaterial({
-                color: 0x800080,
-                size: 15,
-            });
-
-            pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-            const points = new THREE.Points(pointsGeometry, pointsMaterial);
-            cube.current.add(points);
+            cube.current.add(spheres);
         } else if ('paths' in data) {
             // Para múltiples caminos con la propiedad "paths"
             if (!Array.isArray(data.paths) || data.paths.length === 0) {
@@ -471,30 +458,27 @@ const Cubo = () => {
                     return;
                 }
 
-                const positions = pointsData.flatMap((point) => {
+                const spheres = new THREE.Group();
+
+                pointsData.forEach((point) => {
                     if (
                         typeof point.x === 'number' &&
                         typeof point.y === 'number' &&
                         typeof point.z === 'string'
                     ) {
                         const time = new Date(`1970-01-01T${point.z}`);
-                        return [point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600];
+                        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16); // Ajusta el radio y la calidad según tus preferencias
+                        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+                        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+
+                        sphere.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600);
+                        spheres.add(sphere);
                     } else {
                         console.warn('Invalid point coordinates:', point);
-                        return [];
                     }
                 });
 
-                const pointsGeometry = new THREE.BufferGeometry();
-                const pointsMaterial = new THREE.PointsMaterial({
-                    color: 0x800080,
-                    size: 15,
-                });
-
-                pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-                const points = new THREE.Points(pointsGeometry, pointsMaterial);
-                cube.current.add(points);
+                cube.current.add(spheres);
             });
         } else {
             console.warn('Invalid JSON format: "points" or "paths" property is missing.');
@@ -534,10 +518,6 @@ const Cubo = () => {
 
     useEffect(() => {
         init();
-        // Limpiar controles al desmontar el componente
-        return () => {
-            controls.current.dispose();
-        };
     }, []);
 
     useEffect(() => {
