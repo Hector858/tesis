@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
@@ -398,6 +398,8 @@ const Cubo = () => {
                         agregarLineas(data);
                     } catch (error) {
                         console.error("Error parsing JSON file:", error);
+                        // Muestra una notificación en el navegador
+                        alert("Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.");
                     }
                 };
 
@@ -482,6 +484,7 @@ const Cubo = () => {
             });
         } else {
             console.warn('Invalid JSON format: "points" or "paths" property is missing.');
+            alert("Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.");
         }
     };
 
