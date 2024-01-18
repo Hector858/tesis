@@ -83,8 +83,10 @@ const Cubo = () => {
     };
     
     const onMouseMove = (event) => {
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        const containerBounds = document.getElementById("scene-container").getBoundingClientRect();
+    
+        mouse.x = ((event.clientX - containerBounds.left) / containerBounds.width) * 2 - 1;
+        mouse.y = -((event.clientY - containerBounds.top) / containerBounds.height) * 2 + 1;
     
         raycaster.setFromCamera(mouse, camera.current);
     
@@ -114,6 +116,7 @@ const Cubo = () => {
             labelDiv.style.display = 'none';
         }
     };
+    
 
     const toggleFullscreen = () => {
         const container = document.getElementById("scene-container");
