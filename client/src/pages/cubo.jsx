@@ -20,7 +20,7 @@ const Cubo = () => {
         scene.current = new THREE.Scene();
 
         const aspect = window.innerWidth / window.innerHeight;
-        camera.current = new THREE.OrthographicCamera(-10 * aspect, 10 * aspect, 10, -10, 0.1, 1000);
+        camera.current = new THREE.OrthographicCamera(-30 * aspect, 30 * aspect, 30, -30, 0.1, 1000);
 
         renderer.current = new THREE.WebGLRenderer();
         renderer.current.setSize(window.innerWidth, window.innerHeight);
@@ -32,8 +32,9 @@ const Cubo = () => {
         container.appendChild(renderer.current.domElement);
 
         // Configuración de la cámara
-        camera.current.position.set(0, 0, 20);
+        camera.current.position.set(0, 0, 40); // el ultimo para poder ver todo bien 
         crearCubo();
+        //ESTO NO X Q DA ERROR loadPointsFromJSON();
         const grid = new THREE.GridHelper(20, 10, 0x202020, 0x202020);
         grid.position.set(0, 0, 0);
         grid.rotation.x = Math.PI / 4;
@@ -137,8 +138,8 @@ const Cubo = () => {
         gui.domElement.style.right = "10px";
     };
 
-    const crearCubo = () => {
-        const geometry = new THREE.PlaneGeometry(10, 10);
+    const crearCubo = (x, y, z) => {
+        const geometry = new THREE.PlaneGeometry(30, 30); // TAMA;O EN LARGO PARA LO  VERDE Y EL MAPA
         const material = new THREE.MeshBasicMaterial({
             color: 0x00ff00,
             transparent: true,
@@ -146,9 +147,9 @@ const Cubo = () => {
         });
         const plane1 = new THREE.Mesh(geometry, material);
         const plane2 = new THREE.Mesh(geometry, material);
-        plane2.position.z = 10;
+        plane2.position.z = 30; //ubicacion de la cosa verde arriba
 
-        const boxGeo = new THREE.BoxGeometry(10, 10, 10);
+        const boxGeo = new THREE.BoxGeometry(30, 30, 30); //sumar 15 a los valores originales EL CUBO EN GENERAL
         const edgeGeo = new THREE.EdgesGeometry(boxGeo);
 
         const line = new THREE.LineSegments(
@@ -158,7 +159,7 @@ const Cubo = () => {
                 linewidth: 5,
             })
         );
-        line.position.z = 5;
+        line.position.z = 15; //ubicacion del mapa
 
         cube.current = new THREE.Group();
         cube.current.add(plane1);
@@ -303,11 +304,18 @@ const Cubo = () => {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     try {
+
+                        // Eliminar solo los elementos que no son parte del cubo base
+                        cube.current.children.slice(3).forEach((child) => {
+                            cube.current.remove(child);
+                        });
                         const data = JSON.parse(e.target.result);
 
                         if ("imageURL" in data) {
                             cargarImagenDesdeURL(data.imageURL);
                         }
+
+
 
                         addPointsFromJSON(data);
                         agregarLineas(data);
@@ -369,7 +377,8 @@ const Cubo = () => {
             pointsData.forEach((point) => {
                 const time = new Date(`1970-01-01T${point.z}`);
                 const label = createTextLabel(`${point.label}`);
-                label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+                label.userData.isLabel = true; // Marcar la etiqueta como tal
+                label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1);
                 cube.current.add(label);
             });
         } else if ('paths' in data) {

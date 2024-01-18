@@ -18,24 +18,41 @@ const CubeTimelineComponent = () => {
   const init = () => {
     // Configuración básica
     scene.current = new THREE.Scene();
-
-    const aspect = window.innerWidth / window.innerHeight;
-    camera.current = new THREE.OrthographicCamera(-10 * aspect, 10 * aspect, 10, -10, 0.1, 1000);
-
     renderer.current = new THREE.WebGLRenderer();
     renderer.current.setSize(window.innerWidth, window.innerHeight);
     renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
     document.body.appendChild(renderer.current.domElement);
 
-    // Configuración de la cámara
-    camera.current.position.set(0, 0, 20);
-    crearCubo();
+    // Cargar puntos desde JSON
+    loadPointsFromJSON();
+
+    // Configuración de la cámara basada en los límites de los puntos
+    if (cube.current) {
+      const boundingBox = new THREE.Box3().setFromObject(cube.current);
+      const center = boundingBox.getCenter(new THREE.Vector3());
+      const size = boundingBox.getSize(new THREE.Vector3());
+
+      const aspect = window.innerWidth / window.innerHeight;
+      const maxAxisSize = Math.max(size.x / 2, size.y / 2, size.z / 2);
+      const cameraSize = maxAxisSize / Math.tan(camera.current.fov * Math.PI / 360);
+
+      camera.current.position.copy(center);
+      camera.current.position.z += cameraSize; // Ajuste de la distancia de la cámara
+
+      camera.current.left = -cameraSize * aspect;
+      camera.current.right = cameraSize * aspect;
+      camera.current.top = cameraSize;
+      camera.current.bottom = -cameraSize;
+      camera.current.updateProjectionMatrix();
+    }
+
+    // Crear el grid y llamar a la animación
     const grid = new THREE.GridHelper(20, 10, 0x202020, 0x202020);
     grid.position.set(0, 0, 0);
     grid.rotation.x = Math.PI / 4;
     grid.rotation.y = Math.PI / 4;
+    scene.current.add(grid);
 
-    // Llamar a la animación
     animate();
 
     // Manejar eventos de redimensionamiento
@@ -65,33 +82,44 @@ const CubeTimelineComponent = () => {
     folder.add({ CargarJSON: () => loadPointsFromJSON() }, 'CargarJSON');
   };
 
-  const crearCubo = () => {
-    const geometry = new THREE.PlaneGeometry(10, 10);
+  const crearCubo = (data) => {
+    const boundingBox = new THREE.Box3();
+
+    // Actualizar boundingBox con los puntos cargados
+    if ('points' in data) {
+      const pointsData = data.points;
+      const points = pointsData.map(point => new THREE.Vector3(point.x, point.y, parseFloat(point.z)));
+      boundingBox.setFromPoints(points);
+    }
+
+    // Calcular el centro y tamaño del cubo
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    const size = boundingBox.getSize(new THREE.Vector3());
+
+    // Ajustar la posición de la cámara basada en los límites de los puntos
+    const maxAxisSize = Math.max(size.x / 2, size.y / 2, size.z / 2);
+    const aspect = window.innerWidth / window.innerHeight;
+
+    // Configurar la cámara
+    camera.current.position.copy(center);
+    camera.current.position.z += maxAxisSize * 2; // Ajustar la posición de la cámara
+    camera.current.left = -maxAxisSize * aspect;
+    camera.current.right = maxAxisSize * aspect;
+    camera.current.top = maxAxisSize;
+    camera.current.bottom = -maxAxisSize;
+    camera.current.updateProjectionMatrix();
+
+    // Crear el cubo
+    cube.current = new THREE.Group();
+    const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
     const material = new THREE.MeshBasicMaterial({
       color: 0x00ff00,
       transparent: true,
       opacity: 0.3,
     });
-    const plane1 = new THREE.Mesh(geometry, material);
-    const plane2 = new THREE.Mesh(geometry, material);
-    plane2.position.z = 10;
-
-    const boxGeo = new THREE.BoxGeometry(10, 10, 10);
-    const edgeGeo = new THREE.EdgesGeometry(boxGeo);
-
-    const line = new THREE.LineSegments(
-      edgeGeo,
-      new THREE.LineBasicMaterial({
-        color: new THREE.Color("black"),
-        linewidth: 5,
-      })
-    );
-    line.position.z = 5;
-
-    cube.current = new THREE.Group();
-    cube.current.add(plane1);
-    cube.current.add(plane2);
-    cube.current.add(line);
+    const cubeMesh = new THREE.Mesh(geometry, material);
+    cubeMesh.position.copy(center);
+    cube.current.add(cubeMesh);
     scene.current.add(cube.current);
   };
 
@@ -236,7 +264,7 @@ const CubeTimelineComponent = () => {
             if ("imageURL" in data) {
               cargarImagenDesdeURL(data.imageURL);
             }
-
+            crearCubo(data);
             addPointsFromJSON(data);
             agregarLineas(data);
           } catch (error) {
