@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
@@ -14,7 +14,7 @@ const Cubo = () => {
     let showLines = true;
     let showLabels = true;
 
-
+    const [jsonData, setJsonData] = useState(null);
     const init = () => {
         // Configuración básica
         scene.current = new THREE.Scene();
@@ -138,7 +138,31 @@ const Cubo = () => {
         gui.domElement.style.right = "10px";
     };
 
-    const crearCubo = (x, y, z) => {
+    const crearCubo = () => {
+        // Verificar si hay datos cargados desde el archivo JSON
+        if (jsonData && jsonData.points) {
+            // Obtener el array de puntos desde la data cargada
+            const points = jsonData.points;
+
+            // Encontrar los valores máximos de x, y, y z utilizando reduce
+            const maxX = points.reduce((max, point) => Math.max(max, point.x), -Infinity);
+            const maxY = points.reduce((max, point) => Math.max(max, point.y), -Infinity);
+            const maxZ = points.reduce((max, point) => {
+                // Obtener solo los dos primeros números de la propiedad z
+                const zNumbers = point.z.split(":").slice(0, 2).map(Number);
+                const zValue = zNumbers[0] * 60 + zNumbers[1]; // Convertir a minutos
+                return Math.max(max, zValue);
+            }, -Infinity);
+
+            // Imprimir en consola los valores máximos
+            console.log("Valor máximo de x:", maxX);
+            console.log("Valor máximo de y:", maxY);
+            console.log("Valor máximo de z:", maxZ);
+        } else {
+            // Manejar el caso cuando no hay datos cargados
+            console.warn("No hay datos cargados desde el archivo JSON.");
+        }
+
         const geometry = new THREE.PlaneGeometry(30, 30); // TAMA;O EN LARGO PARA LO  VERDE Y EL MAPA
         const material = new THREE.MeshBasicMaterial({
             color: 0x00ff00,
@@ -304,7 +328,6 @@ const Cubo = () => {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     try {
-
                         // Eliminar solo los elementos que no son parte del cubo base
                         cube.current.children.slice(3).forEach((child) => {
                             cube.current.remove(child);
@@ -315,10 +338,11 @@ const Cubo = () => {
                             cargarImagenDesdeURL(data.imageURL);
                         }
 
-
-
                         addPointsFromJSON(data);
                         agregarLineas(data);
+
+                        // Guardar los datos en el estado
+                        setJsonData(data);
                     } catch (error) {
                         console.error("Error parsing JSON file:", error);
                     }
@@ -521,7 +545,15 @@ const Cubo = () => {
         actualizarVisibilidad();
     }, [showPoints, showLines]);
 
-
+    // Ejemplo:
+    useEffect(() => {
+        // Llamar a crearCubo después de cargar los datos
+        crearCubo();
+        if (jsonData) {
+            console.log("Datos cargados desde el archivo JSON:", jsonData);
+            // Puedes realizar operaciones adicionales con los datos cargados
+        }
+    }, [jsonData]);
 
     return (
         <div id="scene-container">
