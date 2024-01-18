@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
@@ -490,8 +490,12 @@ const Cubo = () => {
 
     const actualizarVisibilidad = () => {
         cube.current.children.forEach((child) => {
-            if (child instanceof THREE.Points) {
-                child.visible = showPoints;
+            if (child instanceof THREE.Group && child.children.length > 0) {
+                child.children.forEach((point) => {
+                    if (point instanceof THREE.Mesh) {
+                        point.visible = showPoints;
+                    }
+                });
             } else if (child instanceof Line2 && !esLineaBorde(child)) {
                 child.visible = showLines;
             } else if (child instanceof THREE.Mesh && child.userData.isLabel) {
