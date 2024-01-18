@@ -83,44 +83,35 @@ const Cubo = () => {
     };
     
     const onMouseMove = (event) => {
-        // Calcula la posición normalizada del mouse en el rango [-1, 1]
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     
-        // Actualiza el raycaster con la posición del mouse
         raycaster.setFromCamera(mouse, camera.current);
     
-        // Comprueba la intersección con los objetos Points
-        const intersects = raycaster.intersectObjects(scene.current.children, true);
-
-        const spheres = intersects.filter((intersection) => {
-            const object = intersection.object;
-            return object instanceof THREE.Mesh && object.isPlane !== true;
-        });
+        const intersects = raycaster.intersectObjects(cube.current.children, true);
     
-        if (spheres.length > 0) {
-            // Muestra la información del punto en la consola
-            const selectedObject = intersects[0].object;
-            const position = selectedObject.position;
-            const x = position.x;
-            const y = position.y;
-            const z = position.z;
-            const formattedTime = formatTime(z);
-            
-            // Actualiza la posición de la etiqueta div
-            labelDiv.style.left = `${event.clientX + 10}px`;
-            labelDiv.style.top = `${event.clientY - 20}px`;
+        let selectedObject = null;
     
-            // Muestra la información en la etiqueta
-            labelDiv.innerText = `Point: x=${x.toFixed(2)}, y=${y.toFixed(2)}, Hora=${formattedTime}`;
+        if (intersects.length > 0) {
+            selectedObject = intersects.find((obj) => obj.object.userData.isPoint);
     
-            // Muestra la etiqueta
-            labelDiv.style.display = 'block';
+            if (selectedObject) {
+                const position = selectedObject.object.position;
+                const x = position.x;
+                const y = position.y;
+                const z = position.z;
+                const formattedTime = formatTime(z);
     
-            //console.log(`Point information: x=${x}, y=${y}, z=${z}`);
-        }else {
-          // Oculta la etiqueta si no hay intersección con un punto
-          labelDiv.style.display = 'none';
+                labelDiv.style.left = `${event.clientX + 10}px`;
+                labelDiv.style.top = `${event.clientY - 20}px`;
+    
+                labelDiv.innerText = `Point: x=${x.toFixed(2)}, y=${y.toFixed(2)}, Hora=${formattedTime}`;
+                labelDiv.style.display = 'block';
+            } else {
+                labelDiv.style.display = 'none';
+            }
+        } else {
+            labelDiv.style.display = 'none';
         }
     };
 
@@ -438,6 +429,7 @@ const Cubo = () => {
                     const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
 
                     sphere.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600);
+                    sphere.userData.isPoint = true; 
                     spheres.add(sphere);
                 } else {
                     console.warn('Invalid point coordinates:', point);
@@ -474,6 +466,7 @@ const Cubo = () => {
                         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
 
                         sphere.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600);
+                        sphere.userData.isPoint = true; 
                         spheres.add(sphere);
                     } else {
                         console.warn('Invalid point coordinates:', point);
