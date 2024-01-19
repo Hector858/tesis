@@ -227,6 +227,10 @@ const Cubo = () => {
         if (jsonData) {
             addPointsFromJSON(jsonData);
             agregarLineas(jsonData);
+            // Verificar si hay datos de imagen en el archivo JSON
+            if ("imageURL" in jsonData) {
+                cargarImagenDesdeURL(jsonData.imageURL);
+            }
             // Puedes llamar a otras funciones aquí para agregar más elementos si es necesario
         }
     };
