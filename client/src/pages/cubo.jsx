@@ -139,57 +139,96 @@ const Cubo = () => {
     };
 
     const crearCubo = () => {
+        // Verificar si cube.current está inicializado
+        if (!cube.current) {
+            cube.current = new THREE.Group();
+            scene.current.add(cube.current);
+        } else {
+            // Limpiar todos los elementos del cubo existente
+            cube.current.children.slice().forEach((child) => {
+                cube.current.remove(child);
+            });
+        }
+
         // Verificar si hay datos cargados desde el archivo JSON
-        if (jsonData && jsonData.points) {
-            // Obtener el array de puntos desde la data cargada
-            const points = jsonData.points;
+        let data;
+        if (jsonData && (jsonData.points || jsonData.paths)) {
+            // Si la propiedad 'points' existe, úsala directamente, de lo contrario, usa 'paths'
+            data = jsonData.points ? jsonData.points : jsonData.paths.flatMap(path => path.points);
 
             // Encontrar los valores máximos de x, y, y z utilizando reduce
-            const maxX = points.reduce((max, point) => Math.max(max, point.x), -Infinity);
-            const maxY = points.reduce((max, point) => Math.max(max, point.y), -Infinity);
-            const maxZ = points.reduce((max, point) => {
+            const maxX = data.reduce((max, point) => Math.max(max, point.x), -Infinity);
+            const maxY = data.reduce((max, point) => Math.max(max, point.y), -Infinity);
+            const maxZMinutes = data.reduce((max, point) => {
                 // Obtener solo los dos primeros números de la propiedad z
                 const zNumbers = point.z.split(":").slice(0, 2).map(Number);
                 const zValue = zNumbers[0] * 60 + zNumbers[1]; // Convertir a minutos
                 return Math.max(max, zValue);
             }, -Infinity);
 
+            // Convertir los minutos a horas, minutos y segundos
+            const maxZHours = Math.floor(maxZMinutes / 60);
+            const maxZMinutesRemaining = maxZMinutes % 60;
+            const maxZSeconds = 0; // No tenemos los segundos en este caso
+
             // Imprimir en consola los valores máximos
             console.log("Valor máximo de x:", maxX);
             console.log("Valor máximo de y:", maxY);
-            console.log("Valor máximo de z:", maxZ);
+            console.log("Valor máximo de z (en horas):", `${maxZHours}:${maxZMinutesRemaining}:${maxZSeconds}`);
+
+
+            // Utilizar los valores máximos para el tamaño y posición del cubo
+            const cubeSizeX = maxX + 15; // Agregar un valor adicional para espacio
+            const cubeSizeY = maxY + 15; // Agregar un valor adicional para espacio
+            const cubeHeightScale = -20; // Factor de escala para reducir la altura
+            const cubeSizeZ = Math.max(15, (maxZHours * 60 + maxZMinutesRemaining) * cubeHeightScale);
+
+            const geometry = new THREE.PlaneGeometry(cubeSizeX, cubeSizeY);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                transparent: true,
+                opacity: 0.3,
+            });
+
+            const plane1 = new THREE.Mesh(geometry, material);
+            const plane2 = new THREE.Mesh(geometry, material);
+            plane2.position.z = cubeSizeZ; // Ubicación de la cosa verde arriba
+
+            const boxGeo = new THREE.BoxGeometry(cubeSizeX, cubeSizeY, cubeSizeZ);
+            const edgeGeo = new THREE.EdgesGeometry(boxGeo);
+
+            const line = new THREE.LineSegments(
+                edgeGeo,
+                new THREE.LineBasicMaterial({
+                    color: new THREE.Color("black"),
+                    linewidth: 5,
+                })
+            );
+            line.position.z = cubeSizeZ / 2; // Ubicación del mapa en el centro del cubo
+
+            // Limpiar todos los elementos del cubo existente
+            cube.current.children.slice().forEach((child) => {
+                cube.current.remove(child);
+            });
+
+            // Agregar los nuevos elementos al cubo
+            cube.current.add(plane1);
+            cube.current.add(plane2);
+            cube.current.add(line);
+
         } else {
             // Manejar el caso cuando no hay datos cargados
             console.warn("No hay datos cargados desde el archivo JSON.");
+            return; // Salir de la función si no hay datos cargados NO SE MUESTRA EL CUBO BASE 
         }
 
-        const geometry = new THREE.PlaneGeometry(30, 30); // TAMA;O EN LARGO PARA LO  VERDE Y EL MAPA
-        const material = new THREE.MeshBasicMaterial({
-            color: 0x00ff00,
-            transparent: true,
-            opacity: 0.3,
-        });
-        const plane1 = new THREE.Mesh(geometry, material);
-        const plane2 = new THREE.Mesh(geometry, material);
-        plane2.position.z = 30; //ubicacion de la cosa verde arriba
 
-        const boxGeo = new THREE.BoxGeometry(30, 30, 30); //sumar 15 a los valores originales EL CUBO EN GENERAL
-        const edgeGeo = new THREE.EdgesGeometry(boxGeo);
-
-        const line = new THREE.LineSegments(
-            edgeGeo,
-            new THREE.LineBasicMaterial({
-                color: new THREE.Color("black"),
-                linewidth: 5,
-            })
-        );
-        line.position.z = 15; //ubicacion del mapa
-
-        cube.current = new THREE.Group();
-        cube.current.add(plane1);
-        cube.current.add(plane2);
-        cube.current.add(line);
-        scene.current.add(cube.current);
+        // Agregar puntos, líneas, etiquetas, etc.
+        if (jsonData) {
+            addPointsFromJSON(jsonData);
+            agregarLineas(jsonData);
+            // Puedes llamar a otras funciones aquí para agregar más elementos si es necesario
+        }
     };
 
     const agregarLineas = (data) => {
