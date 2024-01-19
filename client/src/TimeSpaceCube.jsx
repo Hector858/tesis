@@ -1,49 +1,473 @@
-import React, { useState } from 'react';
-import Plot from 'react-plotly.js';
+import React, { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
-const TimeSpaceCubePlot = () => {
-  const [data, setData] = useState([]);
+const CubeTimelineComponent = () => {
+  const scene = useRef(null);
+  const camera = useRef(null);
+  const renderer = useRef(null);
+  const cube = useRef(null);
+  const controls = useRef(null);
 
-  const handleFileChange = (event) => {
-    const files = event.target.files;
-    const newFilesData = [];
+  let showPoints = true;
+  let showLines = true;
 
-    // Read each file and extract data
-    for (const file of files) {
-      const reader = new FileReader();
 
-      reader.onload = (e) => {
-        const fileContent = e.target.result;
-        newFilesData.push(JSON.parse(fileContent));
 
-        // If data from all files is collected, set the combined data
-        if (newFilesData.length === files.length) {
-          setData(newFilesData);
+  const init = () => {
+    // Configuración básica
+    scene.current = new THREE.Scene();
+    renderer.current = new THREE.WebGLRenderer();
+    renderer.current.setSize(window.innerWidth, window.innerHeight);
+    renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
+    document.body.appendChild(renderer.current.domElement);
+
+    // Cargar puntos desde JSON
+    loadPointsFromJSON();
+
+    // Configuración de la cámara basada en los límites de los puntos
+    if (cube.current) {
+      const boundingBox = new THREE.Box3().setFromObject(cube.current);
+      const center = boundingBox.getCenter(new THREE.Vector3());
+      const size = boundingBox.getSize(new THREE.Vector3());
+
+      const aspect = window.innerWidth / window.innerHeight;
+      const maxAxisSize = Math.max(size.x / 2, size.y / 2, size.z / 2);
+      const cameraSize = maxAxisSize / Math.tan(camera.current.fov * Math.PI / 360);
+
+      camera.current.position.copy(center);
+      camera.current.position.z += cameraSize; // Ajuste de la distancia de la cámara
+
+      camera.current.left = -cameraSize * aspect;
+      camera.current.right = cameraSize * aspect;
+      camera.current.top = cameraSize;
+      camera.current.bottom = -cameraSize;
+      camera.current.updateProjectionMatrix();
+    }
+
+    // Crear el grid y llamar a la animación
+    const grid = new THREE.GridHelper(20, 10, 0x202020, 0x202020);
+    grid.position.set(0, 0, 0);
+    grid.rotation.x = Math.PI / 4;
+    grid.rotation.y = Math.PI / 4;
+    scene.current.add(grid);
+
+    animate();
+
+    // Manejar eventos de redimensionamiento
+    window.addEventListener("resize", onWindowResize, false);
+
+    // Configuración de los controles de órbita
+    controls.current = new OrbitControls(camera.current, renderer.current.domElement);
+
+    initGUI();
+  };
+
+  const initGUI = () => {
+    const gui = new GUI();
+    // Agrega controles y configuraciones del GUI aquí
+    const folder = gui.addFolder('Opciones');
+
+    folder.add({ MostrarPuntos: showPoints }, 'MostrarPuntos').onChange((value) => {
+      showPoints = value;
+      actualizarVisibilidad();
+    });
+
+    folder.add({ MostrarLineas: showLines }, 'MostrarLineas').onChange((value) => {
+      showLines = value;
+      actualizarVisibilidad();
+    });
+
+    folder.add({ CargarJSON: () => loadPointsFromJSON() }, 'CargarJSON');
+  };
+
+  const crearCubo = (data) => {
+    const boundingBox = new THREE.Box3();
+
+    // Actualizar boundingBox con los puntos cargados
+    if ('points' in data) {
+      const pointsData = data.points;
+      const points = pointsData.map(point => new THREE.Vector3(point.x, point.y, parseFloat(point.z)));
+      boundingBox.setFromPoints(points);
+    }
+
+    // Calcular el centro y tamaño del cubo
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    const size = boundingBox.getSize(new THREE.Vector3());
+
+    // Ajustar la posición de la cámara basada en los límites de los puntos
+    const maxAxisSize = Math.max(size.x / 2, size.y / 2, size.z / 2);
+    const aspect = window.innerWidth / window.innerHeight;
+
+    // Configurar la cámara
+    camera.current.position.copy(center);
+    camera.current.position.z += maxAxisSize * 2; // Ajustar la posición de la cámara
+    camera.current.left = -maxAxisSize * aspect;
+    camera.current.right = maxAxisSize * aspect;
+    camera.current.top = maxAxisSize;
+    camera.current.bottom = -maxAxisSize;
+    camera.current.updateProjectionMatrix();
+
+    // Crear el cubo
+    cube.current = new THREE.Group();
+    const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.3,
+    });
+    const cubeMesh = new THREE.Mesh(geometry, material);
+    cubeMesh.position.copy(center);
+    cube.current.add(cubeMesh);
+    scene.current.add(cube.current);
+  };
+
+  const agregarLineas = (data) => {
+    if (!showLines) {
+      return;
+    }
+
+    if ('points' in data) {
+      // Para un solo camino con la propiedad "points"
+      const pointsData = data.points;
+
+      if (!Array.isArray(pointsData) || pointsData.length < 2) {
+        console.warn('Invalid path format: "points" array is missing or has insufficient points.');
+        return;
+      }
+
+      const curvePoints = pointsData.flatMap((point) => {
+        if (
+          typeof point.x === 'number' &&
+          typeof point.y === 'number' &&
+          typeof point.z === 'string'
+        ) {
+          const time = new Date(`1970-01-01T${point.z}`);
+          const hours = time.getHours();
+          const minutes = time.getMinutes();
+          const seconds = time.getSeconds();
+
+          return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
+        } else {
+          console.warn('Invalid point coordinates:', point);
+          return [];
         }
-      };
+      });
 
-      reader.readAsText(file);
+      if (curvePoints.length < 2) {
+        console.warn('Not enough valid points to create lines.');
+        return;
+      }
+
+      const curve = new THREE.CatmullRomCurve3(curvePoints);
+
+      const geometry = new THREE.BufferGeometry().setFromPoints(
+        curve.getPoints(50)
+      );
+
+      const material = new THREE.LineBasicMaterial({
+        color: 0xff0000,
+        linewidth: 5,
+      });
+
+      const thickLine = new THREE.Line(geometry, material);
+      cube.current.add(thickLine);
+    } else if ('paths' in data) {
+      // Para múltiples caminos con la propiedad "paths"
+      if (!Array.isArray(data.paths) || data.paths.length === 0) {
+        console.warn('Invalid JSON format: "paths" array is missing or empty.');
+        return;
+      }
+
+      data.paths.forEach((path) => {
+        const pointsData = path.points;
+
+        if (!Array.isArray(pointsData) || pointsData.length < 2) {
+          console.warn('Invalid path format: "points" array is missing or has insufficient points.');
+          return;
+        }
+
+        const curvePoints = pointsData.flatMap((point) => {
+          if (
+            typeof point.x === 'number' &&
+            typeof point.y === 'number' &&
+            typeof point.z === 'string'
+          ) {
+            const time = new Date(`1970-01-01T${point.z}`);
+            const hours = time.getHours();
+            const minutes = time.getMinutes();
+            const seconds = time.getSeconds();
+
+            return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
+          } else {
+            console.warn('Invalid point coordinates:', point);
+            return [];
+          }
+        });
+
+        if (curvePoints.length < 2) {
+          console.warn('Not enough valid points to create lines.');
+          return;
+        }
+
+        const curve = new THREE.CatmullRomCurve3(curvePoints);
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(
+          curve.getPoints(50)
+        );
+
+        const material = new THREE.LineBasicMaterial({
+          color: 0xff0000,
+          linewidth: 5,
+        });
+
+        const thickLine = new THREE.Line(geometry, material);
+        cube.current.add(thickLine);
+      });
+    } else {
+      console.warn('Invalid JSON format: "points" or "paths" property is missing.');
     }
   };
 
-  const combinedData = data.reduce((acc, curr) => {
-    if (curr && curr.length > 0) {
-      acc.push(...curr);
+  const esLineaBorde = (linea) => {
+    const colorLinea = linea.material.color;
+    return colorLinea.equals(new THREE.Color("black"));
+  };
+
+  const cargarImagenDesdeURL = (url) => {
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(url, (texture) => {
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        opacity: 1,
+      }); // Establecer la opacidad a 1 (sin opacidad)
+      cube.current.children[0].material = material; // Actualizar el material del plane1
+    });
+  };
+
+  const loadPointsFromJSON = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+
+    input.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const data = JSON.parse(e.target.result);
+
+            if ("imageURL" in data) {
+              cargarImagenDesdeURL(data.imageURL);
+            }
+            crearCubo(data);
+            addPointsFromJSON(data);
+            agregarLineas(data);
+          } catch (error) {
+            console.error("Error parsing JSON file:", error);
+          }
+        };
+
+        reader.readAsText(file);
+      }
+    });
+
+    input.click();
+  };
+
+
+
+  const addPointsFromJSON = (data) => {
+    if (!showPoints) {
+      return;
     }
-    return acc;
+    const labelMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); // Color del texto
+
+    if ('points' in data) {
+      // Para un solo camino con la propiedad "points"
+      const pointsData = data.points;
+
+      if (!Array.isArray(pointsData) || pointsData.length === 0) {
+        console.warn('Invalid JSON format: "points" array is missing or empty.');
+        return;
+      }
+
+      const positions = pointsData.flatMap((point) => {
+        if (
+          typeof point.x === 'number' &&
+          typeof point.y === 'number' &&
+          typeof point.z === 'string'
+        ) {
+          const time = new Date(`1970-01-01T${point.z}`);
+          return [point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600];
+        } else {
+          console.warn('Invalid point coordinates:', point);
+          return [];
+        }
+      });
+
+      const pointsGeometry = new THREE.BufferGeometry();
+      const pointsMaterial = new THREE.PointsMaterial({
+        color: 0x800080,
+        size: 5,
+      });
+
+      pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+      const points = new THREE.Points(pointsGeometry, pointsMaterial);
+      cube.current.add(points);
+
+      // Añadir etiquetas
+      pointsData.forEach((point) => {
+        const time = new Date(`1970-01-01T${point.z}`);
+        const label = createTextLabel(`${point.label}`);
+        label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+        cube.current.add(label);
+      });
+    } else if ('paths' in data) {
+      // Para múltiples caminos con la propiedad "paths"
+      if (!Array.isArray(data.paths) || data.paths.length === 0) {
+        console.warn('Invalid JSON format: "paths" array is missing or empty.');
+        return;
+      }
+
+      data.paths.forEach((path) => {
+        const pointsData = path.points;
+
+        if (!Array.isArray(pointsData) || pointsData.length === 0) {
+          console.warn('Invalid path format: "points" array is missing or empty.');
+          return;
+        }
+
+        const positions = pointsData.flatMap((point) => {
+          if (
+            typeof point.x === 'number' &&
+            typeof point.y === 'number' &&
+            typeof point.z === 'string'
+          ) {
+            const time = new Date(`1970-01-01T${point.z}`);
+            return [point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600];
+          } else {
+            console.warn('Invalid point coordinates:', point);
+            return [];
+          }
+        });
+
+        const pointsGeometry = new THREE.BufferGeometry();
+        const pointsMaterial = new THREE.PointsMaterial({
+          color: 0x800080,
+          size: 5,
+        });
+
+        pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+        const points = new THREE.Points(pointsGeometry, pointsMaterial);
+        cube.current.add(points);
+
+        // Añadir etiquetas
+        pointsData.forEach((point) => {
+          const time = new Date(`1970-01-01T${point.z}`);
+          const label = createTextLabel(`${point.label}`);
+          label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+          cube.current.add(label);
+        });
+      });
+    } else {
+      console.warn('Invalid JSON format: "points" or "paths" property is missing.');
+    }
+  };
+
+  // Función para crear etiquetas de texto
+  // Función para crear etiquetas de texto con fondo transparente y letras de color negro
+  function createTextLabel(text) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    // Ajustar el tamaño de la fuente y el color del texto
+    context.font = 'Bold 50px Arial';
+    context.fillStyle = '#000000'; // Color negro
+    context.textAlign = 'center'; // Alineación centrada
+    context.textBaseline = 'middle'; // Alineación vertical centrada
+
+    // Medir el tamaño del texto para ajustar el tamaño del canvas
+    const textMeasure = context.measureText(text);
+    canvas.width = textMeasure.width + 20; // Añadir espacio adicional
+    canvas.height = 70; // Ajustar según el tamaño de la fuente y preferencias
+
+    // Rellenar el fondo con transparencia
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dibujar el texto en el centro del canvas
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    // Configurar la textura con fondo transparente
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true; // Asegurarse de que la textura se actualice correctamente
+
+    // Configurar el material con transparencia
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true, // Activar transparencia
+      side: THREE.DoubleSide
+    });
+
+    // Configurar la geometría del texto
+    const textGeometry = new THREE.PlaneGeometry(canvas.width / 25, canvas.height / 25);
+
+    // Configurar el mesh del texto
+    const textMesh = new THREE.Mesh(textGeometry, material);
+
+    return textMesh;
+  }
+
+  const actualizarVisibilidad = () => {
+    cube.current.children.forEach((child) => {
+      if (child instanceof THREE.Points) {
+        child.visible = showPoints;
+      } else if (child instanceof THREE.Line && !esLineaBorde(child)) {
+        child.visible = showLines;
+      }
+    });
+  };
+
+  const onWindowResize = () => {
+    const aspect = window.innerWidth / window.innerHeight;
+    camera.current.left = -10 * aspect;
+    camera.current.right = 10 * aspect;
+    camera.current.top = 10;
+    camera.current.bottom = -10;
+    camera.current.updateProjectionMatrix();
+
+    renderer.current.setSize(window.innerWidth - 20, window.innerHeight - 20);
+  };
+
+  const animate = () => {
+    requestAnimationFrame(animate);
+
+    if (cube.current) {
+      renderer.current.render(scene.current, camera.current);
+    }
+  };
+
+  useEffect(() => {
+    init();
+    // Limpiar controles al desmontar el componente
+    return () => {
+      controls.current.dispose();
+    };
   }, []);
 
-  return (
-    <div>
-      <input type="file" onChange={handleFileChange} multiple />
-      {combinedData.length > 0 && (
-        <Plot
-          data={combinedData} // Combine and place your data in the appropriate format for Plotly.js
-          layout={{ title: 'Time-Space Cube' }}
-        />
-      )}
-    </div>
-  );
+  useEffect(() => {
+    actualizarVisibilidad();
+  }, [showPoints, showLines]);
+
+
+
+  return null;
 };
 
-export default TimeSpaceCubePlot;
+export default CubeTimelineComponent;
