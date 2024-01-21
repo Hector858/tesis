@@ -435,7 +435,7 @@ const Cubo = () => {
                     sphere.userData.isPoint = true; 
                     spheres.add(sphere);
                 } else {
-                    console.warn('Invalid point coordinates:', point);
+                    alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
                 }
             });
 
@@ -472,7 +472,7 @@ const Cubo = () => {
                         sphere.userData.isPoint = true; 
                         spheres.add(sphere);
                     } else {
-                        console.warn('Invalid point coordinates:', point);
+                        alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
                     }
                 });
 
