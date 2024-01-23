@@ -11,13 +11,16 @@
   "dependencies": {
     "@react-three/fiber": "^8.15.13",
     "@types/three": "^0.160.0",
+    "html2canvas": "^1.4.1",
+    "html2pdf.js": "^0.10.1",
+    "jspdf": "^2.5.1",
     "plotly.js": "^2.26.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^6.21.1",
     "react-three-fiber": "^6.0.13",
-    "three": "^0.160.0"
+    "three": "^0.160.1"
   },
   "devDependencies": {
     "@types/react": "^18.0.24",

@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
-const CubeTimelineComponent = () => {
+const Cubo = () => {
   const scene = useRef(null);
   const camera = useRef(null);
   const renderer = useRef(null);
@@ -12,115 +12,227 @@ const CubeTimelineComponent = () => {
 
   let showPoints = true;
   let showLines = true;
+  let showLabels = true;
 
-
-
+  const [jsonData, setJsonData] = useState(null);
   const init = () => {
     // Configuración básica
     scene.current = new THREE.Scene();
+
+    const aspect = window.innerWidth / window.innerHeight;
+    camera.current = new THREE.OrthographicCamera(-30 * aspect, 30 * aspect, 30, -30, 0.1, 1000);
+
     renderer.current = new THREE.WebGLRenderer();
     renderer.current.setSize(window.innerWidth, window.innerHeight);
     renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
-    document.body.appendChild(renderer.current.domElement);
 
-    // Cargar puntos desde JSON
-    loadPointsFromJSON();
 
-    // Configuración de la cámara basada en los límites de los puntos
-    if (cube.current) {
-      const boundingBox = new THREE.Box3().setFromObject(cube.current);
-      const center = boundingBox.getCenter(new THREE.Vector3());
-      const size = boundingBox.getSize(new THREE.Vector3());
+    // Crear contenedor para la escena y los controles
+    const container = document.getElementById("scene-container");
+    container.appendChild(renderer.current.domElement);
 
-      const aspect = window.innerWidth / window.innerHeight;
-      const maxAxisSize = Math.max(size.x / 2, size.y / 2, size.z / 2);
-      const cameraSize = maxAxisSize / Math.tan(camera.current.fov * Math.PI / 360);
-
-      camera.current.position.copy(center);
-      camera.current.position.z += cameraSize; // Ajuste de la distancia de la cámara
-
-      camera.current.left = -cameraSize * aspect;
-      camera.current.right = cameraSize * aspect;
-      camera.current.top = cameraSize;
-      camera.current.bottom = -cameraSize;
-      camera.current.updateProjectionMatrix();
-    }
-
-    // Crear el grid y llamar a la animación
+    // Configuración de la cámara
+    camera.current.position.set(0, 0, 40); // el ultimo para poder ver todo bien 
+    crearCubo();
+    //ESTO NO X Q DA ERROR loadPointsFromJSON();
     const grid = new THREE.GridHelper(20, 10, 0x202020, 0x202020);
     grid.position.set(0, 0, 0);
     grid.rotation.x = Math.PI / 4;
     grid.rotation.y = Math.PI / 4;
-    scene.current.add(grid);
 
+
+
+    // Configuración de los controles de órbita
+    controls.current = new OrbitControls(camera.current, renderer.current.domElement);
+    container.appendChild(controls.current.domElement); // Adjuntar controles al nuevo contenedor
+
+
+
+    // Llamar a la animación
     animate();
 
     // Manejar eventos de redimensionamiento
     window.addEventListener("resize", onWindowResize, false);
 
-    // Configuración de los controles de órbita
-    controls.current = new OrbitControls(camera.current, renderer.current.domElement);
+    initGUI(container);
 
-    initGUI();
+    //initFullscreenButton();
   };
 
-  const initGUI = () => {
-    const gui = new GUI();
-    // Agrega controles y configuraciones del GUI aquí
-    const folder = gui.addFolder('Opciones');
+  // const initFullscreenButton = () => {
+  //     const fullscreenButton = document.createElement("button");
+  //     fullscreenButton.innerHTML = "Fullscreen";
+  //     fullscreenButton.style.position = "absolute";
+  //     fullscreenButton.style.top = "10px";
+  //     fullscreenButton.style.right = "10px";
+  //     fullscreenButton.addEventListener("click", toggleFullscreen);
+  //     document.body.appendChild(fullscreenButton);
+  // };
 
-    folder.add({ MostrarPuntos: showPoints }, 'MostrarPuntos').onChange((value) => {
+  const toggleFullscreen = () => {
+    const container = document.getElementById("scene-container");
+
+    if (container.requestFullscreen) {
+      container.requestFullscreen();
+    } else if (container.mozRequestFullScreen) {
+      container.mozRequestFullScreen();
+    } else if (container.webkitRequestFullscreen) {
+      container.webkitRequestFullscreen();
+    } else if (container.msRequestFullscreen) {
+      container.msRequestFullscreen();
+    }
+  };
+
+  const exitFullscreen = () => {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      document.mozCancelFullScreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+  };
+
+  const initGUI = (container) => {
+    const guiContainer = document.createElement("div");
+    container.appendChild(guiContainer);
+
+    // Agrega controles y configuraciones del GUI aquí
+    const gui = new GUI({ autoPlace: false });
+    const folder = gui.addFolder("Opciones");
+
+    folder.add({ MostrarPuntos: showPoints }, "MostrarPuntos").onChange((value) => {
       showPoints = value;
       actualizarVisibilidad();
     });
 
-    folder.add({ MostrarLineas: showLines }, 'MostrarLineas').onChange((value) => {
+    folder.add({ MostrarLineas: showLines }, "MostrarLineas").onChange((value) => {
       showLines = value;
       actualizarVisibilidad();
     });
 
-    folder.add({ CargarJSON: () => loadPointsFromJSON() }, 'CargarJSON');
+    folder.add({ MostrarEtiquetas: true }, "MostrarEtiquetas").onChange((value) => {
+      showLabels = value;
+      actualizarVisibilidad();
+    });
+
+    folder.add({ Fullscreen: false }, "Fullscreen").onChange((value) => {
+      if (value) {
+        toggleFullscreen();
+      } else {
+        exitFullscreen();
+      }
+      // Restaurar el valor a false para que el botón esté disponible para el próximo clic
+      folder.__controllers[0].setValue(false);
+    });
+
+    folder.add({ CargarJSON: () => loadPointsFromJSON() }, "CargarJSON");
+
+
+
+    guiContainer.appendChild(gui.domElement);
+    gui.domElement.style.position = "absolute";
+    gui.domElement.style.top = "90px";
+    gui.domElement.style.right = "10px";
   };
 
-  const crearCubo = (data) => {
-    const boundingBox = new THREE.Box3();
-
-    // Actualizar boundingBox con los puntos cargados
-    if ('points' in data) {
-      const pointsData = data.points;
-      const points = pointsData.map(point => new THREE.Vector3(point.x, point.y, parseFloat(point.z)));
-      boundingBox.setFromPoints(points);
+  const crearCubo = () => {
+    // Verificar si cube.current está inicializado
+    if (!cube.current) {
+      cube.current = new THREE.Group();
+      scene.current.add(cube.current);
+    } else {
+      // Limpiar todos los elementos del cubo existente
+      cube.current.children.slice().forEach((child) => {
+        cube.current.remove(child);
+      });
     }
 
-    // Calcular el centro y tamaño del cubo
-    const center = boundingBox.getCenter(new THREE.Vector3());
-    const size = boundingBox.getSize(new THREE.Vector3());
+    // Verificar si hay datos cargados desde el archivo JSON
+    let data;
+    if (jsonData && (jsonData.points || jsonData.paths)) {
+      // Si la propiedad 'points' existe, úsala directamente, de lo contrario, usa 'paths'
+      data = jsonData.points ? jsonData.points : jsonData.paths.flatMap(path => path.points);
 
-    // Ajustar la posición de la cámara basada en los límites de los puntos
-    const maxAxisSize = Math.max(size.x / 2, size.y / 2, size.z / 2);
-    const aspect = window.innerWidth / window.innerHeight;
+      // Encontrar los valores máximos de x, y, y z utilizando reduce
+      const maxX = data.reduce((max, point) => Math.max(max, point.x), -Infinity);
+      const maxY = data.reduce((max, point) => Math.max(max, point.y), -Infinity);
+      const maxZMinutes = data.reduce((max, point) => {
+        // Obtener solo los dos primeros números de la propiedad z
+        const zNumbers = point.z.split(":").slice(0, 2).map(Number);
+        const zValue = zNumbers[0] * 60 + zNumbers[1]; // Convertir a minutos
+        return Math.max(max, zValue);
+      }, -Infinity);
 
-    // Configurar la cámara
-    camera.current.position.copy(center);
-    camera.current.position.z += maxAxisSize * 2; // Ajustar la posición de la cámara
-    camera.current.left = -maxAxisSize * aspect;
-    camera.current.right = maxAxisSize * aspect;
-    camera.current.top = maxAxisSize;
-    camera.current.bottom = -maxAxisSize;
-    camera.current.updateProjectionMatrix();
+      // Convertir los minutos a horas, minutos y segundos
+      const maxZHours = Math.floor(maxZMinutes / 60);
+      const maxZMinutesRemaining = maxZMinutes % 60;
+      const maxZSeconds = 0; // No tenemos los segundos en este caso
 
-    // Crear el cubo
-    cube.current = new THREE.Group();
-    const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
-    const material = new THREE.MeshBasicMaterial({
-      color: 0x00ff00,
-      transparent: true,
-      opacity: 0.3,
-    });
-    const cubeMesh = new THREE.Mesh(geometry, material);
-    cubeMesh.position.copy(center);
-    cube.current.add(cubeMesh);
-    scene.current.add(cube.current);
+      // Imprimir en consola los valores máximos
+      console.log("Valor máximo de x:", maxX);
+      console.log("Valor máximo de y:", maxY);
+      console.log("Valor máximo de z (en horas):", `${maxZHours}:${maxZMinutesRemaining}:${maxZSeconds}`);
+
+
+      // Utilizar los valores máximos para el tamaño y posición del cubo
+      const cubeSizeX = maxX + 15; // Agregar un valor adicional para espacio
+      const cubeSizeY = maxY + 15; // Agregar un valor adicional para espacio
+      const cubeHeightScale = -20; // Factor de escala para reducir la altura
+      const cubeSizeZ = Math.max(15, (maxZHours * 60 + maxZMinutesRemaining) * cubeHeightScale);
+
+      const geometry = new THREE.PlaneGeometry(cubeSizeX, cubeSizeY);
+      const material = new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.3,
+      });
+
+      const plane1 = new THREE.Mesh(geometry, material);
+      const plane2 = new THREE.Mesh(geometry, material);
+      plane2.position.z = cubeSizeZ; // Ubicación de la cosa verde arriba
+
+      const boxGeo = new THREE.BoxGeometry(cubeSizeX, cubeSizeY, cubeSizeZ);
+      const edgeGeo = new THREE.EdgesGeometry(boxGeo);
+
+      const line = new THREE.LineSegments(
+        edgeGeo,
+        new THREE.LineBasicMaterial({
+          color: new THREE.Color("black"),
+          linewidth: 5,
+        })
+      );
+      line.position.z = cubeSizeZ / 2; // Ubicación del mapa en el centro del cubo
+
+      // Limpiar todos los elementos del cubo existente
+      cube.current.children.slice().forEach((child) => {
+        cube.current.remove(child);
+      });
+
+      // Agregar los nuevos elementos al cubo
+      cube.current.add(plane1);
+      cube.current.add(plane2);
+      cube.current.add(line);
+
+    } else {
+      // Manejar el caso cuando no hay datos cargados
+      console.warn("No hay datos cargados desde el archivo JSON.");
+      return; // Salir de la función si no hay datos cargados NO SE MUESTRA EL CUBO BASE 
+    }
+
+
+    // Agregar puntos, líneas, etiquetas, etc.
+    if (jsonData) {
+      addPointsFromJSON(jsonData);
+      agregarLineas(jsonData);
+      // Verificar si hay datos de imagen en el archivo JSON
+      if ("imageURL" in jsonData) {
+        cargarImagenDesdeURL(jsonData.imageURL);
+      }
+      // Puedes llamar a otras funciones aquí para agregar más elementos si es necesario
+    }
   };
 
   const agregarLineas = (data) => {
@@ -259,14 +371,21 @@ const CubeTimelineComponent = () => {
         const reader = new FileReader();
         reader.onload = async (e) => {
           try {
+            // Eliminar solo los elementos que no son parte del cubo base
+            cube.current.children.slice(3).forEach((child) => {
+              cube.current.remove(child);
+            });
             const data = JSON.parse(e.target.result);
 
             if ("imageURL" in data) {
               cargarImagenDesdeURL(data.imageURL);
             }
-            crearCubo(data);
+
             addPointsFromJSON(data);
             agregarLineas(data);
+
+            // Guardar los datos en el estado
+            setJsonData(data);
           } catch (error) {
             console.error("Error parsing JSON file:", error);
           }
@@ -325,7 +444,8 @@ const CubeTimelineComponent = () => {
       pointsData.forEach((point) => {
         const time = new Date(`1970-01-01T${point.z}`);
         const label = createTextLabel(`${point.label}`);
-        label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+        label.userData.isLabel = true; // Marcar la etiqueta como tal
+        label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1);
         cube.current.add(label);
       });
     } else if ('paths' in data) {
@@ -372,7 +492,8 @@ const CubeTimelineComponent = () => {
         pointsData.forEach((point) => {
           const time = new Date(`1970-01-01T${point.z}`);
           const label = createTextLabel(`${point.label}`);
-          label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1); // Ajusta la posición del texto
+          label.userData.isLabel = true; // Marcar la etiqueta como tal
+          label.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600 + 0.1);
           cube.current.add(label);
         });
       });
@@ -430,6 +551,8 @@ const CubeTimelineComponent = () => {
         child.visible = showPoints;
       } else if (child instanceof THREE.Line && !esLineaBorde(child)) {
         child.visible = showLines;
+      } else if (child instanceof THREE.Mesh && child.userData.isLabel) {
+        child.visible = showLabels;
       }
     });
   };
@@ -465,9 +588,21 @@ const CubeTimelineComponent = () => {
     actualizarVisibilidad();
   }, [showPoints, showLines]);
 
+  // Ejemplo:
+  useEffect(() => {
+    // Llamar a crearCubo después de cargar los datos
+    crearCubo();
+    if (jsonData) {
+      console.log("Datos cargados desde el archivo JSON:", jsonData);
+      // Puedes realizar operaciones adicionales con los datos cargados
+    }
+  }, [jsonData]);
 
+  return (
+    <div id="scene-container">
+      {/* Contenedor para la escena y los controles */}
+    </div>
+  );
+}
 
-  return null;
-};
-
-export default CubeTimelineComponent;
+export default Cubo;
