@@ -70,17 +70,6 @@ const Cubo = () => {
 
         initGUI(container);
     };
-
-    const formatTime = (hours) => {
-        const totalSeconds = hours * 3600;
-        const formattedHours = Math.floor(hours).toString().padStart(2, '0');
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const formattedMinutes = minutes.toString().padStart(2, '0');
-        const seconds = Math.floor(totalSeconds % 60);
-        const formattedSeconds = seconds.toString().padStart(2, '0');
-      
-        return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
-    };
     
     const onMouseMove = (event) => {
         const containerBounds = document.getElementById("scene-container").getBoundingClientRect();
@@ -98,16 +87,13 @@ const Cubo = () => {
             selectedObject = intersects.find((obj) => obj.object.userData.isPoint);
     
             if (selectedObject) {
-                const position = selectedObject.object.position;
-                const x = position.x;
-                const y = position.y;
-                const z = position.z;
-                const formattedTime = formatTime(z);
+                const originalValues = selectedObject.object.userData.originalValues;
+                const formattedOriginalValues = `Point: x=${originalValues.x.toFixed(2)}, y=${originalValues.y.toFixed(2)}, Hora=${originalValues.z}`;
     
                 labelDiv.style.left = `${event.clientX + 10}px`;
                 labelDiv.style.top = `${event.clientY - 20}px`;
     
-                labelDiv.innerText = `Point: x=${x.toFixed(2)}, y=${y.toFixed(2)}, Hora=${formattedTime}`;
+                labelDiv.innerText = formattedOriginalValues;
                 labelDiv.style.display = 'block';
             } else {
                 labelDiv.style.display = 'none';
@@ -116,6 +102,7 @@ const Cubo = () => {
             labelDiv.style.display = 'none';
         }
     };
+    
     
 
     const toggleFullscreen = () => {
@@ -181,6 +168,15 @@ const Cubo = () => {
     };
 
     const crearCubo = () => {
+        if (!cube.current) {
+            cube.current = new THREE.Group();
+            scene.current.add(cube.current);
+        } else {
+            // Limpiar todos los elementos del cubo existente
+            cube.current.children.slice().forEach((child) => {
+                cube.current.remove(child);
+            });
+        }
         const geometry = new THREE.PlaneGeometry(10, 10);
         const material = new THREE.MeshBasicMaterial({
             color: 0x00ff00,
@@ -228,6 +224,10 @@ const Cubo = () => {
                 return;
             }
 
+            const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const zRange = maxZ - minZ;
+
             const curvePoints = pointsData.flatMap((point) => {
                 if (
                     typeof point.x === 'number' &&
@@ -235,11 +235,9 @@ const Cubo = () => {
                     typeof point.z === 'string'
                 ) {
                     const time = new Date(`1970-01-01T${point.z}`);
-                    const hours = time.getHours();
-                    const minutes = time.getMinutes();
-                    const seconds = time.getSeconds();
-
-                    return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
+                    const normalizedZ = (time.getTime() - minZ) / zRange;
+                    const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
+                    return new THREE.Vector3(point.x, point.y, scaledZ);
                 } else {
                     console.warn('Invalid point coordinates:', point);
                     return [];
@@ -287,6 +285,9 @@ const Cubo = () => {
                 return;
             }
 
+            let minZ = Infinity;
+            let maxZ = -Infinity;
+
             data.paths.forEach((path) => {
                 const pointsData = path.points;
 
@@ -295,6 +296,13 @@ const Cubo = () => {
                     return;
                 }
 
+                 // Calcular la hora más baja y la hora más alta para todos los puntos
+                const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+                const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+
+                minZ = Math.min(minZ, pathMinZ);
+                maxZ = Math.max(maxZ, pathMaxZ);
+
                 const curvePoints = pointsData.flatMap((point) => {
                     if (
                         typeof point.x === 'number' &&
@@ -302,11 +310,11 @@ const Cubo = () => {
                         typeof point.z === 'string'
                     ) {
                         const time = new Date(`1970-01-01T${point.z}`);
-                        const hours = time.getHours();
-                        const minutes = time.getMinutes();
-                        const seconds = time.getSeconds();
+                        const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
 
-                        return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
+                        const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
+
+                        return new THREE.Vector3(point.x, point.y, scaledZ);
                     } else {
                         console.warn('Invalid point coordinates:', point);
                         return [];
@@ -384,6 +392,11 @@ const Cubo = () => {
                     try {
                         const data = JSON.parse(e.target.result);
 
+                         // Eliminar solo los elementos que no son parte del cubo base
+                         cube.current.children.slice(3).forEach((child) => {
+                            cube.current.remove(child);
+                        });
+
                         if ("imageURL" in data) {
                             cargarImagenDesdeURL(data.imageURL);
                         }
@@ -420,6 +433,11 @@ const Cubo = () => {
 
             const spheres = new THREE.Group();
 
+            // Obtener la hora más baja y la hora más alta
+            const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const zRange = maxZ - minZ;
+
             pointsData.forEach((point) => {
                 if (
                     typeof point.x === 'number' &&
@@ -427,12 +445,19 @@ const Cubo = () => {
                     typeof point.z === 'string'
                 ) {
                     const time = new Date(`1970-01-01T${point.z}`);
-                    const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16); // Ajusta el radio y la calidad según tus preferencias
+                    const normalizedZ = (time.getTime() - minZ) / zRange;
+
+                    const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
+
+                    const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
                     const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
                     const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
 
-                    sphere.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600);
-                    sphere.userData.isPoint = true; 
+                    // Almacenar los valores originales en userData
+                    sphere.userData.originalValues = {x: point.x, y: point.y, z: point.z};
+
+                    sphere.position.set(point.x, point.y, scaledZ);
+                    sphere.userData.isPoint = true;
                     spheres.add(sphere);
                 } else {
                     alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
@@ -441,6 +466,8 @@ const Cubo = () => {
 
             cube.current.add(spheres);
         } else if ('paths' in data) {
+            let minZ = Infinity;
+            let maxZ = -Infinity;
             // Para múltiples caminos con la propiedad "paths"
             if (!Array.isArray(data.paths) || data.paths.length === 0) {
                 console.warn('Invalid JSON format: "paths" array is missing or empty.');
@@ -455,6 +482,15 @@ const Cubo = () => {
                     return;
                 }
 
+                // Calcular la hora más baja y la hora más alta para todos los puntos
+                const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+                const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+
+                console.log('pathMinZ', pathMinZ, 'pathMaxZ', pathMaxZ);
+
+                minZ = Math.min(minZ, pathMinZ);
+                maxZ = Math.max(maxZ, pathMaxZ);
+
                 const spheres = new THREE.Group();
 
                 pointsData.forEach((point) => {
@@ -464,12 +500,19 @@ const Cubo = () => {
                         typeof point.z === 'string'
                     ) {
                         const time = new Date(`1970-01-01T${point.z}`);
-                        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16); // Ajusta el radio y la calidad según tus preferencias
+                        const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
+
+                        const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
+
+                        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
                         const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
                         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
 
-                        sphere.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600);
-                        sphere.userData.isPoint = true; 
+                        // Almacenar los valores originales en userData
+                        sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
+
+                        sphere.position.set(point.x, point.y, scaledZ);
+                        sphere.userData.isPoint = true;
                         spheres.add(sphere);
                     } else {
                         alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
@@ -521,6 +564,9 @@ const Cubo = () => {
 
     useEffect(() => {
         init();
+        return () => {
+            controls.current.dispose();
+        };
     }, []);
 
     useEffect(() => {
