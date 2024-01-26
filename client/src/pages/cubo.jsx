@@ -218,6 +218,7 @@ const Cubo = () => {
         if ('points' in data) {
             // Para un solo camino con la propiedad "points"
             const pointsData = data.points;
+            let anyPointOutsideCube = false; 
 
             if (!Array.isArray(pointsData) || pointsData.length < 2) {
                 console.warn('Invalid path format: "points" array is missing or has insufficient points.');
@@ -237,7 +238,12 @@ const Cubo = () => {
                     const time = new Date(`1970-01-01T${point.z}`);
                     const normalizedZ = (time.getTime() - minZ) / zRange;
                     const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
-                    return new THREE.Vector3(point.x, point.y, scaledZ);
+                    if (point.x <= 5 && point.y <= 5 && point.x >= -5 && point.y >= -5){
+                        return new THREE.Vector3(point.x, point.y, scaledZ);
+                    }else {
+                        anyPointOutsideCube = true;
+                        return [];
+                    }
                 } else {
                     console.warn('Invalid point coordinates:', point);
                     return [];
@@ -277,7 +283,10 @@ const Cubo = () => {
 
             const thickLine = new Line2(geometry, material);
             thickLine.computeLineDistances();
-            cube.current.add(thickLine);
+            if (!anyPointOutsideCube) {
+                cube.current.add(thickLine);
+            }
+            //cube.current.add(thickLine);
         } else if ('paths' in data) {
             // Para múltiples caminos con la propiedad "paths"
             if (!Array.isArray(data.paths) || data.paths.length === 0) {
@@ -287,6 +296,7 @@ const Cubo = () => {
 
             let minZ = Infinity;
             let maxZ = -Infinity;
+            let allPathsInsideCube = true;
 
             data.paths.forEach((path) => {
                 const pointsData = path.points;
@@ -303,6 +313,8 @@ const Cubo = () => {
                 minZ = Math.min(minZ, pathMinZ);
                 maxZ = Math.max(maxZ, pathMaxZ);
 
+                let allPointsInsidePath = true;
+
                 const curvePoints = pointsData.flatMap((point) => {
                     if (
                         typeof point.x === 'number' &&
@@ -314,7 +326,12 @@ const Cubo = () => {
 
                         const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
 
-                        return new THREE.Vector3(point.x, point.y, scaledZ);
+                        if (point.x <= 5 && point.y <= 5 && point.x >= -5 && point.y >= -5){
+                            return new THREE.Vector3(point.x, point.y, scaledZ);
+                        }else {
+                            allPointsInsidePath = false;
+                            return [];
+                        }
                     } else {
                         console.warn('Invalid point coordinates:', point);
                         return [];
@@ -326,36 +343,50 @@ const Cubo = () => {
                     return;
                 }
 
-                const curve = new THREE.CatmullRomCurve3(curvePoints);
-                const points = curve.getPoints(50);
-                const positions = points.flatMap(v => [v.x, v.y, v.z]);
-
-                const colors = [];
-                const divisions = Math.round(25 * curvePoints.length);
-                const color = new THREE.Color();
-
-                for (let i = 0, l = divisions; i < l; i++) {
-                    const t = i / l;
-                    color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
-                    colors.push(color.r, color.g, color.b);
+                if (curvePoints.length >= 3 && allPointsInsidePath) {
+                    const curve = new THREE.CatmullRomCurve3(curvePoints);
+                    const points = curve.getPoints(50);
+                    const positions = points.flatMap(v => [v.x, v.y, v.z]);
+    
+                    const colors = [];
+                    const divisions = Math.round(25 * curvePoints.length);
+                    const color = new THREE.Color();
+    
+                    for (let i = 0, l = divisions; i < l; i++) {
+                        const t = i / l;
+                        color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                        colors.push(color.r, color.g, color.b);
+                    }
+    
+                    const geometry = new LineGeometry().setPositions(positions);
+                    geometry.setColors(colors);
+    
+                    const material = new LineMaterial({
+                        color: 0xffffff,
+                        linewidth: 5,
+                        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                        dashed: false,
+                        transparent: true,
+                        vertexColors: true,
+                    });
+    
+                    const thickLine = new Line2(geometry, material);
+                    thickLine.computeLineDistances();
+    
+                    cube.current.add(thickLine);
+                } else {
+                    allPathsInsideCube = false;
                 }
-
-                const geometry = new LineGeometry().setPositions(positions);
-                geometry.setColors(colors);
-
-                const material = new LineMaterial({
-                    color: 0xffffff,
-                    linewidth: 5,
-                    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    dashed: false,
-                    transparent: true,
-                    vertexColors: true,
-                });
-
-                const thickLine = new Line2(geometry, material);
-                thickLine.computeLineDistances();
-                cube.current.add(thickLine);
             });
+
+            if (!allPathsInsideCube) {
+                // Limpia las líneas existentes antes de agregar nuevas
+                cube.current.children.slice().forEach((child) => {
+                    if (child instanceof Line2) {
+                        cube.current.remove(child);
+                    }
+                });
+            }
         } else {
             console.warn('Invalid JSON format: "points" or "paths" property is missing.');
         }
@@ -433,6 +464,8 @@ const Cubo = () => {
 
             const spheres = new THREE.Group();
 
+            let anyPointOutsideCube = false;
+
             // Obtener la hora más baja y la hora más alta
             const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
             const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
@@ -445,34 +478,49 @@ const Cubo = () => {
                     typeof point.z === 'string'
                 ) {
                     const time = new Date(`1970-01-01T${point.z}`);
+                    if (isNaN(time.getTime())) {
+                        alert("¡Advertencia! El formato de hora en al menos uno de los puntos no es válido.");
+                        return;
+                    }
                     const normalizedZ = (time.getTime() - minZ) / zRange;
 
                     const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
 
-                    const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-                    const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
-                    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                    // Verificar si el punto está fuera del cubo antes de agregarlo
+                    if (point.x <= 5 && point.y <= 5 && point.x >= -5 && point.y >= -5) {
+                        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+                        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
 
-                    // Almacenar los valores originales en userData
-                    sphere.userData.originalValues = {x: point.x, y: point.y, z: point.z};
+                        // Almacenar los valores originales en userData
+                        sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
 
-                    sphere.position.set(point.x, point.y, scaledZ);
-                    sphere.userData.isPoint = true;
-                    spheres.add(sphere);
+                        sphere.position.set(point.x, point.y, scaledZ);
+                        sphere.userData.isPoint = true;
+                        spheres.add(sphere);
+                    } else {
+                        anyPointOutsideCube = true;
+                        alert("¡Advertencia! Al menos uno de los puntos está fuera del cubo.");
+                    }
                 } else {
                     alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
                 }
             });
 
-            cube.current.add(spheres);
+            if (!anyPointOutsideCube) {
+                cube.current.add(spheres);
+            }
         } else if ('paths' in data) {
             let minZ = Infinity;
             let maxZ = -Infinity;
+            let allPathsInsideCube = true;
             // Para múltiples caminos con la propiedad "paths"
             if (!Array.isArray(data.paths) || data.paths.length === 0) {
                 console.warn('Invalid JSON format: "paths" array is missing or empty.');
                 return;
             }
+
+            const pathsGroup = new THREE.Group();
 
             data.paths.forEach((path) => {
                 const pointsData = path.points;
@@ -482,11 +530,11 @@ const Cubo = () => {
                     return;
                 }
 
+                let allPointsInsidePath = true;
+
                 // Calcular la hora más baja y la hora más alta para todos los puntos
                 const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
                 const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-
-                console.log('pathMinZ', pathMinZ, 'pathMaxZ', pathMaxZ);
 
                 minZ = Math.min(minZ, pathMinZ);
                 maxZ = Math.max(maxZ, pathMaxZ);
@@ -500,27 +548,45 @@ const Cubo = () => {
                         typeof point.z === 'string'
                     ) {
                         const time = new Date(`1970-01-01T${point.z}`);
+                        if (isNaN(time.getTime())) {
+                            alert("¡Advertencia! El formato de hora en al menos uno de los puntos no es válido.");
+                            return;
+                        }
                         const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
 
                         const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
 
-                        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-                        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
-                        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-
-                        // Almacenar los valores originales en userData
-                        sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
-
-                        sphere.position.set(point.x, point.y, scaledZ);
-                        sphere.userData.isPoint = true;
-                        spheres.add(sphere);
+                        if (point.x <= 5 && point.y <= 5 && point.x >= -5 && point.y >= -5){
+                            const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                            const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+                            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    
+                            // Almacenar los valores originales en userData
+                            sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
+    
+                            sphere.position.set(point.x, point.y, scaledZ);
+                            sphere.userData.isPoint = true;
+                            spheres.add(sphere);
+                        }else {
+                            allPointsInsidePath = false;
+                        }
                     } else {
                         alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
+                        allPointsInsidePath = false;
                     }
                 });
 
-                cube.current.add(spheres);
+                if (allPointsInsidePath) {
+                    pathsGroup.add(spheres);
+                } else {
+                    allPathsInsideCube = false;
+                }
             });
+            if (allPathsInsideCube) {
+                cube.current.add(pathsGroup);
+            } else {
+                alert("¡Advertencia! Al menos uno de los caminos contiene puntos fuera del cubo.");
+            }
         } else {
             console.warn('Invalid JSON format: "points" or "paths" property is missing.');
             alert("Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.");
