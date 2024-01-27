@@ -620,7 +620,10 @@ const Cubo = () => {
         cube.current.children.forEach((child) => {
             if (child instanceof THREE.Group && child.children.length > 0) {
                 child.children.forEach((point) => {
-                    if (point instanceof THREE.Mesh) {
+                    // Verificar si es un punto en un camino y ajustar la visibilidad en consecuencia
+                    if (point.userData.isPoint && point.parent instanceof THREE.Group) {
+                        point.visible = showPoints;
+                    } else {
                         point.visible = showPoints;
                     }
                 });
