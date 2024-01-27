@@ -12,12 +12,10 @@ const Cubo = () => {
     const renderer = useRef(null);
     const cube = useRef(null);
     const controls = useRef(null);
-    const resetButtonRef = useRef(null);
 
     let showPoints = true;
     let showLines = true;
     let showLabels = true;
-
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -104,8 +102,6 @@ const Cubo = () => {
         }
     };
     
-    
-
     const toggleFullscreen = () => {
         const container = document.getElementById("scene-container");
 
@@ -306,10 +302,10 @@ const Cubo = () => {
 
             const thickLine = new Line2(geometry, material);
             thickLine.computeLineDistances();
+
             if (!anyPointOutsideCube) {
                 cube.current.add(thickLine);
             }
-            //cube.current.add(thickLine);
         } else if ('paths' in data) {
             // Para múltiples caminos con la propiedad "paths"
             if (!Array.isArray(data.paths) || data.paths.length === 0) {
@@ -329,7 +325,7 @@ const Cubo = () => {
                     return;
                 }
 
-                 // Calcular la hora más baja y la hora más alta para todos los puntos
+                // Calcular la hora más baja y la hora más alta para todos los puntos
                 const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
                 const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
 
@@ -664,8 +660,6 @@ const Cubo = () => {
     useEffect(() => {
         actualizarVisibilidad();
     }, [showPoints, showLines]);
-
-
 
     return (
         <div id="scene-container">
