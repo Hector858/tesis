@@ -12,6 +12,7 @@ const Cubo = () => {
     const renderer = useRef(null);
     const cube = useRef(null);
     const controls = useRef(null);
+    const resetButtonRef = useRef(null);
 
     let showPoints = true;
     let showLines = true;
@@ -131,6 +132,23 @@ const Cubo = () => {
         }
     };
 
+    const resetCameraPosition = () => {
+        camera.current.position.set(0, 0, 20);
+        camera.current.lookAt(new THREE.Vector3(0, 0, 0));
+    };
+
+    const zoomStep = 0.1; // Puedes ajustar el valor según tus necesidades
+
+    const zoomIn = () => {
+        camera.current.zoom -= zoomStep;
+        camera.current.updateProjectionMatrix();
+    };
+
+    const zoomOut = () => {
+        camera.current.zoom += zoomStep;
+        camera.current.updateProjectionMatrix();
+    };
+
     const initGUI = (container) => {
         const guiContainer = document.createElement("div");
         container.appendChild(guiContainer);
@@ -159,7 +177,12 @@ const Cubo = () => {
             //folder.__controllers[0].setValue(false);
         });
 
+        folder.add({ ResetPosition: () => resetCameraPosition() }, "ResetPosition");
+
         folder.add({ CargarJSON: () => loadPointsFromJSON() }, "CargarJSON");
+
+        folder.add({ ZoomIn: () => zoomIn() }, "ZoomIn"); // Botón para aumentar el zoom
+        folder.add({ ZoomOut: () => zoomOut() }, "ZoomOut"); // Botón para disminuir el zoom
 
         guiContainer.appendChild(gui.domElement);
         gui.domElement.style.position = "absolute";
