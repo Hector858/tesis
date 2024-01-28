@@ -5,6 +5,11 @@ import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import html2pdf from 'html2pdf.js';
+import { AxesHelper, ArrowHelper } from "three";
+import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+import { MeshBasicMaterial, Mesh } from "three";
 
 const Cubo = () => {
     const scene = useRef(null);
@@ -26,9 +31,9 @@ const Cubo = () => {
         scene.current = new THREE.Scene();
 
         const aspect = window.innerWidth / window.innerHeight;
-        camera.current = new THREE.OrthographicCamera(-10 * aspect, 10 * aspect, 10, -10, 0.1, 1000);
+        camera.current = new THREE.OrthographicCamera(-30 * aspect, 30 * aspect, 30, -30, 0.1, 1000);
 
-        renderer.current = new THREE.WebGLRenderer();
+        renderer.current = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
         renderer.current.setSize(window.innerWidth, window.innerHeight);
         renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
         // Crear contenedor para la escena y los controles
@@ -47,7 +52,7 @@ const Cubo = () => {
         container.appendChild(labelDiv);
 
         // Configuración de la cámara
-        camera.current.position.set(0, 0, 20);
+        camera.current.position.set(0, 0, 40);
         crearCubo();
         const grid = new THREE.GridHelper(20, 10, 0x202020, 0x202020);
         grid.position.set(0, 0, 0);
@@ -129,7 +134,7 @@ const Cubo = () => {
     };
 
     const resetCameraPosition = () => {
-        camera.current.position.set(0, 0, 20);
+        camera.current.position.set(0, 0, 40);
         camera.current.lookAt(new THREE.Vector3(0, 0, 0));
     };
 
@@ -177,26 +182,62 @@ const Cubo = () => {
 
         folder.add({ CargarJSON: () => loadPointsFromJSON() }, "CargarJSON");
 
-        folder.add({ ZoomIn: () => zoomIn() }, "ZoomIn"); // Botón para aumentar el zoom
-        folder.add({ ZoomOut: () => zoomOut() }, "ZoomOut"); // Botón para disminuir el zoom
+        folder.add({ ZoomIn: () => zoomIn() }, "ZoomIn"); // Botón para disminuir el zoom
+        folder.add({ ZoomOut: () => zoomOut() }, "ZoomOut"); // Botón para aumentar el zoom
+        folder.add({ ImprimirPDF: () => imprimirPDF() }, "ImprimirPDF");
 
         guiContainer.appendChild(gui.domElement);
         gui.domElement.style.position = "absolute";
         gui.domElement.style.top = "90px";
-        gui.domElement.style.right = "10px";
+        gui.domElement.style.left = "0px";
+    };
+
+    const imprimirPDF = () => {
+        const container = document.getElementById("scene-container");
+
+        html2pdf(container, {
+            margin: 10,
+            filename: 'escenario.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        });
     };
 
     const crearCubo = () => {
         if (!cube.current) {
             cube.current = new THREE.Group();
             scene.current.add(cube.current);
+            // Agregar AxesHelper al cubo
+            const axesHelper = new AxesHelper(30);
+            axesHelper.position.set(-15, -15, 0);
+            cube.current.add(axesHelper);
+
+            // Agregar flechas al final de los ejes
+            const arrowX = new ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(15, -15, 0), 10, 0xff0000);
+            const arrowY = new ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-15, 15, 0), 10, 0x00ff00);
+            const arrowZ = new ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-15, -15, 30), 10, 0x0000ff);
+
+            // Ajusta la longitud de las flechas según tus preferencias
+            cube.current.add(arrowX);
+            cube.current.add(arrowY);
+            cube.current.add(arrowZ);
+            // Agregar textos en los extremos de AxesHelper
+            const loader = new FontLoader();
+            loader.load("https://threejs.org/examples/fonts/helvetiker_regular.typeface.json", function (font) {
+                agregarTexto("X", font, 15, -15, 0);
+                agregarTexto("Y", font, -15, 15, 0);
+                agregarTexto("T", font, -15, -15, 30);
+            });
         } else {
-            // Limpiar todos los elementos del cubo existente
+            // Limpiar todos los elementos del cubo existente, excepto el AxesHelper
             cube.current.children.slice().forEach((child) => {
-                cube.current.remove(child);
+                if (!(child instanceof AxesHelper)) {
+                    cube.current.remove(child);
+                }
             });
         }
-        const geometry = new THREE.PlaneGeometry(10, 10);
+        const geometry = new THREE.PlaneGeometry(30, 30);
         const material = new THREE.MeshBasicMaterial({
             color: 0x00ff00,
             transparent: true,
@@ -208,9 +249,9 @@ const Cubo = () => {
         plane1.isPlane = true;
         plane2.isPlane = true;
 
-        plane2.position.z = 10;
+        plane2.position.z = 30;
 
-        const boxGeo = new THREE.BoxGeometry(10, 10, 10);
+        const boxGeo = new THREE.BoxGeometry(30, 30, 30);
         const edgeGeo = new THREE.EdgesGeometry(boxGeo);
 
         const line = new THREE.LineSegments(
@@ -220,13 +261,28 @@ const Cubo = () => {
                 linewidth: 5,
             })
         );
-        line.position.z = 5;
+        line.position.z = 15;
 
         cube.current = new THREE.Group();
         cube.current.add(plane1);
         cube.current.add(plane2);
         cube.current.add(line);
         scene.current.add(cube.current);
+    };
+
+    // Función para agregar texto al cubo
+    const agregarTexto = (text, font, x, y, z) => {
+        const geometry = new TextGeometry(text, {
+            font: font,
+            size: 1, // Ajusta el tamaño del texto según tus preferencias
+            height: 0.2, // Ajusta la altura del texto según tus preferencias
+        });
+
+        const material = new MeshBasicMaterial({ color: 0x000000 }); // Ajusta el color del texto según tus preferencias
+
+        const textMesh = new Mesh(geometry, material);
+        textMesh.position.set(x, y, z);
+        cube.current.add(textMesh);
     };
 
     const agregarLineas = (data) => {
@@ -256,8 +312,8 @@ const Cubo = () => {
                 ) {
                     const time = new Date(`1970-01-01T${point.z}`);
                     const normalizedZ = (time.getTime() - minZ) / zRange;
-                    const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
-                    if (point.x <= 5 && point.y <= 5 && point.x >= -5 && point.y >= -5){
+                    const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+                    if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15){
                         return new THREE.Vector3(point.x, point.y, scaledZ);
                     }else {
                         anyPointOutsideCube = true;
@@ -343,9 +399,9 @@ const Cubo = () => {
                         const time = new Date(`1970-01-01T${point.z}`);
                         const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
 
-                        const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
+                        const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
 
-                        if (point.x <= 5 && point.y <= 5 && point.x >= -5 && point.y >= -5){
+                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15){
                             return new THREE.Vector3(point.x, point.y, scaledZ);
                         }else {
                             allPointsInsidePath = false;
@@ -442,9 +498,13 @@ const Cubo = () => {
                     try {
                         const data = JSON.parse(e.target.result);
 
-                         // Eliminar solo los elementos que no son parte del cubo base
-                         cube.current.children.slice(3).forEach((child) => {
-                            cube.current.remove(child);
+                        // Eliminar solo los elementos de puntos y líneas
+                        cube.current.children.slice().forEach((child) => {
+                            if (child instanceof THREE.Group) {
+                                cube.current.remove(child);
+                            } else if (child instanceof Line2) {
+                                cube.current.remove(child);
+                            }
                         });
 
                         if ("imageURL" in data) {
@@ -503,10 +563,10 @@ const Cubo = () => {
                     }
                     const normalizedZ = (time.getTime() - minZ) / zRange;
 
-                    const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
+                    const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
 
                     // Verificar si el punto está fuera del cubo antes de agregarlo
-                    if (point.x <= 5 && point.y <= 5 && point.x >= -5 && point.y >= -5) {
+                    if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
                         const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
                         const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
                         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
@@ -573,9 +633,9 @@ const Cubo = () => {
                         }
                         const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
 
-                        const scaledZ = normalizedZ * 10; // Assuming the height of the cube is 10 units
+                        const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
 
-                        if (point.x <= 5 && point.y <= 5 && point.x >= -5 && point.y >= -5){
+                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15){
                             const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
                             const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
                             const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
@@ -633,10 +693,10 @@ const Cubo = () => {
 
     const onWindowResize = () => {
         const aspect = window.innerWidth / window.innerHeight;
-        camera.current.left = -10 * aspect;
-        camera.current.right = 10 * aspect;
-        camera.current.top = 10;
-        camera.current.bottom = -10;
+        camera.current.left = -30 * aspect;
+        camera.current.right = 30 * aspect;
+        camera.current.top = 30;
+        camera.current.bottom = -30;
         camera.current.updateProjectionMatrix();
 
         renderer.current.setSize(window.innerWidth, window.innerHeight);
