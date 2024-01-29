@@ -11,36 +11,27 @@ import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { MeshBasicMaterial, Mesh } from "three";
 
-// import jsPDF from 'jspdf';
-// import html2canvas from 'html2canvas';
-
 const Cubo = () => {
     const scene = useRef(null);
     const camera = useRef(null);
     const renderer = useRef(null);
     const cube = useRef(null);
     const controls = useRef(null);
-
-    let showPoints = true;
-    let showLines = true;
+    const [showPoints, setShowPoints] = useState(true);
+    const [showLines, setShowLines] = useState(true);
+    const [fullscreen, setFullscreen] = useState(false);
     let showLabels = true;
-
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let labelDiv = null;
 
-    const [jsonData, setJsonData] = useState(null);
     const init = () => {
-        // Configuración básica
         scene.current = new THREE.Scene();
-
-        const aspect = window.innerWidth / window.innerHeight;
+        const aspect = 1140 / 555; //aqui igual
         camera.current = new THREE.OrthographicCamera(-30 * aspect, 30 * aspect, 30, -30, 0.1, 1000);
-
         renderer.current = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
-        renderer.current.setSize(window.innerWidth, window.innerHeight);
+        renderer.current.setSize(1140, 555); //aqui es el tamaño de la escena
         renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
-
 
         // Crear contenedor para la escena y los controles
         const container = document.getElementById("scene-container");
@@ -58,72 +49,42 @@ const Cubo = () => {
         container.appendChild(labelDiv);
 
         // Configuración de la cámara
-        camera.current.position.set(0, 0, 40); // el ultimo para poder ver todo bien 
+        camera.current.position.set(0, 0, 40);
         crearCubo();
-        //ESTO NO X Q DA ERROR loadPointsFromJSON();
         const grid = new THREE.GridHelper(20, 10, 0x202020, 0x202020);
         grid.position.set(0, 0, 0);
         grid.rotation.x = Math.PI / 4;
         grid.rotation.y = Math.PI / 4;
 
-
-
         // Configuración de los controles de órbita
         controls.current = new OrbitControls(camera.current, renderer.current.domElement);
         container.appendChild(controls.current.domElement); // Adjuntar controles al nuevo contenedor
-
-
 
         // Llamar a la animación
         animate();
 
         // Manejar eventos de redimensionamiento
         window.addEventListener("resize", onWindowResize, false);
+
         // Configuración del evento de mover el mouse
         document.addEventListener('mousemove', onMouseMove, false);
-
-        initGUI(container);
-
-        //initFullscreenButton();
-    };
-
-    const formatTime = (hours) => {
-        const totalSeconds = hours * 3600;
-        const formattedHours = Math.floor(hours).toString().padStart(2, '0');
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const formattedMinutes = minutes.toString().padStart(2, '0');
-        const seconds = Math.floor(totalSeconds % 60);
-        const formattedSeconds = seconds.toString().padStart(2, '0');
-
-        return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
     };
 
     const onMouseMove = (event) => {
         const containerBounds = document.getElementById("scene-container").getBoundingClientRect();
-
         mouse.x = ((event.clientX - containerBounds.left) / containerBounds.width) * 2 - 1;
         mouse.y = -((event.clientY - containerBounds.top) / containerBounds.height) * 2 + 1;
-
         raycaster.setFromCamera(mouse, camera.current);
-
         const intersects = raycaster.intersectObjects(cube.current.children, true);
-
         let selectedObject = null;
-
         if (intersects.length > 0) {
             selectedObject = intersects.find((obj) => obj.object.userData.isPoint);
-
             if (selectedObject) {
-                const position = selectedObject.object.position;
-                const x = position.x;
-                const y = position.y;
-                const z = position.z;
-                const formattedTime = formatTime(z);
-
+                const originalValues = selectedObject.object.userData.originalValues;
+                const formattedOriginalValues = `Point: x=${originalValues.x.toFixed(2)}, y=${originalValues.y.toFixed(2)}, Hora=${originalValues.z}`;
                 labelDiv.style.left = `${event.clientX + 10}px`;
                 labelDiv.style.top = `${event.clientY - 20}px`;
-
-                labelDiv.innerText = `Point: x=${x.toFixed(2)}, y=${y.toFixed(2)}, Hora=${formattedTime}`;
+                labelDiv.innerText = formattedOriginalValues;
                 labelDiv.style.display = 'block';
             } else {
                 labelDiv.style.display = 'none';
@@ -132,69 +93,58 @@ const Cubo = () => {
             labelDiv.style.display = 'none';
         }
     };
-
     const toggleFullscreen = () => {
         const container = document.getElementById("scene-container");
 
-        if (container.requestFullscreen) {
-            container.requestFullscreen();
-        } else if (container.mozRequestFullScreen) {
-            container.mozRequestFullScreen();
-        } else if (container.webkitRequestFullscreen) {
-            container.webkitRequestFullscreen();
-        } else if (container.msRequestFullscreen) {
-            container.msRequestFullscreen();
-        }
-    };
-
-    const exitFullscreen = () => {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-            document.mozCancelFullScreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
-        }
-    };
-
-    const initGUI = (container) => {
-        const guiContainer = document.createElement("div");
-        container.appendChild(guiContainer);
-
-        // Agrega controles y configuraciones del GUI aquí
-        const gui = new GUI({ autoPlace: false });
-        const folder = gui.addFolder("Opciones");
-
-        folder.add({ MostrarPuntos: showPoints }, "MostrarPuntos").onChange((value) => {
-            showPoints = value;
-            actualizarVisibilidad();
-        });
-
-        folder.add({ MostrarLineas: showLines }, "MostrarLineas").onChange((value) => {
-            showLines = value;
-            actualizarVisibilidad();
-        });
-
-        folder.add({ ImprimirPDF: () => imprimirPDF() }, "ImprimirPDF");
-
-        folder.add({ Fullscreen: false }, "Fullscreen").onChange((value) => {
-            if (value) {
-                toggleFullscreen();
-            } else {
-                exitFullscreen();
+        if (!fullscreen) {
+            if (container.requestFullscreen) {
+                container.requestFullscreen();
+            } else if (container.mozRequestFullScreen) {
+                container.mozRequestFullScreen();
+            } else if (container.webkitRequestFullscreen) {
+                container.webkitRequestFullscreen();
+            } else if (container.msRequestFullscreen) {
+                container.msRequestFullscreen();
             }
-            // Restaurar el valor a false para que el botón esté disponible para el próximo clic
-            //folder.__controllers[0].setValue(false);
-        });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+        setFullscreen(!fullscreen);
+    };
 
-        folder.add({ CargarJSON: () => loadPointsFromJSON() }, "CargarJSON");
+    const resetCameraPosition = () => {
+        camera.current.position.set(0, 0, 40);
+        camera.current.lookAt(new THREE.Vector3(0, 0, 0));
+    };
 
-        guiContainer.appendChild(gui.domElement);
-        gui.domElement.style.position = "absolute";
-        gui.domElement.style.top = "90px";
-        gui.domElement.style.right = "10px";
+    const zoomStep = 0.1; // Puedes ajustar el valor según tus necesidades
+
+    const zoomIn = () => {
+        camera.current.zoom -= zoomStep;
+        camera.current.updateProjectionMatrix();
+    };
+
+    const zoomOut = () => {
+        camera.current.zoom += zoomStep;
+        camera.current.updateProjectionMatrix();
+    };
+
+    const toggleMostrar = (tipo, isChecked) => {
+        if (tipo === 'MostrarPuntos') {
+            setShowPoints(isChecked);
+        } else if (tipo === 'MostrarLineas') {
+            setShowLines(isChecked);
+        }
+
+        actualizarVisibilidad();
     };
 
     const imprimirPDF = () => {
@@ -209,94 +159,73 @@ const Cubo = () => {
         });
     };
 
-
     const crearCubo = () => {
-        // Verificar si cube.current está inicializado
         if (!cube.current) {
             cube.current = new THREE.Group();
             scene.current.add(cube.current);
+            // Agregar AxesHelper al cubo
+            const axesHelper = new AxesHelper(30);
+            axesHelper.position.set(-15, -15, 0);
+            cube.current.add(axesHelper);
+            // Agregar flechas al final de los ejes
+            const arrowX = new ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(15, -15, 0), 10, 0xff0000);
+            const arrowY = new ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-15, 15, 0), 10, 0x00ff00);
+            const arrowZ = new ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-15, -15, 30), 10, 0x0000ff);
+            // Ajusta la longitud de las flechas según tus preferencias
+            cube.current.add(arrowX);
+            cube.current.add(arrowY);
+            cube.current.add(arrowZ);
+            // Agregar textos en los extremos de AxesHelper
+            const loader = new FontLoader();
+            loader.load("https://threejs.org/examples/fonts/helvetiker_regular.typeface.json", function (font) {
+                agregarTexto("X", font, 15, -15, 0);
+                agregarTexto("Y", font, -15, 15, 0);
+                agregarTexto("T", font, -15, -15, 30);
+            });
         } else {
-            // Limpiar todos los elementos del cubo existente
+            // Limpiar todos los elementos del cubo existente, excepto el AxesHelper
             cube.current.children.slice().forEach((child) => {
-                cube.current.remove(child);
+                if (!(child instanceof AxesHelper)) {
+                    cube.current.remove(child);
+                }
             });
         }
         const geometry = new THREE.PlaneGeometry(30, 30);
         const material = new THREE.MeshBasicMaterial({
             color: 0x00ff00,
             transparent: true,
-            opacity: 0.3,
+            opacity: 0.1,
         });
         const plane1 = new THREE.Mesh(geometry, material);
         const plane2 = new THREE.Mesh(geometry, material);
+        // Asignar propiedad adicional a los planos
+        plane1.isPlane = true;
+        plane2.isPlane = true;
         plane2.position.z = 30;
-
         const boxGeo = new THREE.BoxGeometry(30, 30, 30);
         const edgeGeo = new THREE.EdgesGeometry(boxGeo);
-
         const line = new THREE.LineSegments(
             edgeGeo,
             new THREE.LineBasicMaterial({
-                color: new THREE.Color("white"),
+                color: new THREE.Color("black"),
                 linewidth: 5,
             })
         );
         line.position.z = 15;
-
         cube.current = new THREE.Group();
         cube.current.add(plane1);
         cube.current.add(plane2);
         cube.current.add(line);
         scene.current.add(cube.current);
-
-        // Agregar AxesHelper al cubo
-        const axesHelper = new AxesHelper(30);
-        axesHelper.position.set(-15, -15, 0);
-        cube.current.add(axesHelper);
-
-        // Agregar flechas al final de los ejes
-        const arrowX = new ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(15, -15, 0), 10, 0xff0000);
-        const arrowY = new ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-15, 15, 0), 10, 0x00ff00);
-        const arrowZ = new ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-15, -15, 30), 10, 0x0000ff);
-
-        // Ajusta la longitud de las flechas según tus preferencias
-
-        cube.current.add(arrowX);
-        cube.current.add(arrowY);
-        cube.current.add(arrowZ);
-
-        // Agregar textos en los extremos de AxesHelper
-        const loader = new FontLoader();
-        loader.load("https://threejs.org/examples/fonts/helvetiker_regular.typeface.json", function (font) {
-            agregarTexto("X", font, 15, -15, 0);
-            agregarTexto("Y", font, -15, 15, 0);
-            agregarTexto("T", font, -15, -15, 30);
-        });
-
-        scene.current.add(cube.current);
-
-        // Agregar puntos, líneas, etiquetas, etc.
-        if (jsonData) {
-            addPointsFromJSON(jsonData);
-            agregarLineas(jsonData);
-            // Verificar si hay datos de imagen en el archivo JSON
-            if ("imageURL" in jsonData) {
-                cargarImagenDesdeURL(jsonData.imageURL);
-            }
-            // Puedes llamar a otras funciones aquí para agregar más elementos si es necesario
-        }
     };
 
-    // Función para agregar texto al cubo
     const agregarTexto = (text, font, x, y, z) => {
         const geometry = new TextGeometry(text, {
             font: font,
-            size: 2, // Ajusta el tamaño del texto según tus preferencias
+            size: 1, // Ajusta el tamaño del texto según tus preferencias
             height: 0.2, // Ajusta la altura del texto según tus preferencias
         });
-
-        const material = new MeshBasicMaterial({ color: 0x000000 }); // Ajusta el color del texto según tus preferencias
-
+        const material = new MeshBasicMaterial({ color: 0x000000 });
         const textMesh = new Mesh(geometry, material);
         textMesh.position.set(x, y, z);
         cube.current.add(textMesh);
@@ -310,12 +239,14 @@ const Cubo = () => {
         if ('points' in data) {
             // Para un solo camino con la propiedad "points"
             const pointsData = data.points;
-
+            let anyPointOutsideCube = false;
             if (!Array.isArray(pointsData) || pointsData.length < 2) {
                 console.warn('Invalid path format: "points" array is missing or has insufficient points.');
                 return;
             }
-
+            const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const zRange = maxZ - minZ;
             const curvePoints = pointsData.flatMap((point) => {
                 if (
                     typeof point.x === 'number' &&
@@ -323,39 +254,36 @@ const Cubo = () => {
                     typeof point.z === 'string'
                 ) {
                     const time = new Date(`1970-01-01T${point.z}`);
-                    const hours = time.getHours();
-                    const minutes = time.getMinutes();
-                    const seconds = time.getSeconds();
-
-                    return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
+                    const normalizedZ = (time.getTime() - minZ) / zRange;
+                    const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+                    if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                        return new THREE.Vector3(point.x, point.y, scaledZ);
+                    } else {
+                        anyPointOutsideCube = true;
+                        return [];
+                    }
                 } else {
                     console.warn('Invalid point coordinates:', point);
                     return [];
                 }
             });
-
             if (curvePoints.length < 2) {
                 console.warn('Not enough valid points to create lines.');
                 return;
             }
-
             const curve = new THREE.CatmullRomCurve3(curvePoints);
             const points = curve.getPoints(50);
             const positions = points.flatMap(v => [v.x, v.y, v.z]);
-
             const colors = [];
             const divisions = Math.round(25 * curvePoints.length);
             const color = new THREE.Color();
-
             for (let i = 0, l = divisions; i < l; i++) {
                 const t = i / l;
                 color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
                 colors.push(color.r, color.g, color.b);
             }
-
             const geometry = new LineGeometry().setPositions(positions);
             geometry.setColors(colors);
-
             const material = new LineMaterial({
                 color: 0xffffff,
                 linewidth: 5,
@@ -364,25 +292,32 @@ const Cubo = () => {
                 transparent: true,
                 vertexColors: true,
             });
-
             const thickLine = new Line2(geometry, material);
             thickLine.computeLineDistances();
-            cube.current.add(thickLine);
+            if (!anyPointOutsideCube) {
+                cube.current.add(thickLine);
+            }
         } else if ('paths' in data) {
             // Para múltiples caminos con la propiedad "paths"
             if (!Array.isArray(data.paths) || data.paths.length === 0) {
                 console.warn('Invalid JSON format: "paths" array is missing or empty.');
                 return;
             }
-
+            let minZ = Infinity;
+            let maxZ = -Infinity;
+            let allPathsInsideCube = true;
             data.paths.forEach((path) => {
                 const pointsData = path.points;
-
                 if (!Array.isArray(pointsData) || pointsData.length < 2) {
                     console.warn('Invalid path format: "points" array is missing or has insufficient points.');
                     return;
                 }
-
+                // Calcular la hora más baja y la hora más alta para todos los puntos
+                const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+                const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+                minZ = Math.min(minZ, pathMinZ);
+                maxZ = Math.max(maxZ, pathMaxZ);
+                let allPointsInsidePath = true;
                 const curvePoints = pointsData.flatMap((point) => {
                     if (
                         typeof point.x === 'number' &&
@@ -390,11 +325,16 @@ const Cubo = () => {
                         typeof point.z === 'string'
                     ) {
                         const time = new Date(`1970-01-01T${point.z}`);
-                        const hours = time.getHours();
-                        const minutes = time.getMinutes();
-                        const seconds = time.getSeconds();
+                        const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
 
-                        return new THREE.Vector3(point.x, point.y, hours + minutes / 60 + seconds / 3600);
+                        const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+
+                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                            return new THREE.Vector3(point.x, point.y, scaledZ);
+                        } else {
+                            allPointsInsidePath = false;
+                            return [];
+                        }
                     } else {
                         console.warn('Invalid point coordinates:', point);
                         return [];
@@ -405,37 +345,45 @@ const Cubo = () => {
                     console.warn('Not enough valid points to create lines.');
                     return;
                 }
+                if (curvePoints.length >= 3 && allPointsInsidePath) {
+                    const curve = new THREE.CatmullRomCurve3(curvePoints);
+                    const points = curve.getPoints(50);
+                    const positions = points.flatMap(v => [v.x, v.y, v.z]);
 
-                const curve = new THREE.CatmullRomCurve3(curvePoints);
-                const points = curve.getPoints(50);
-                const positions = points.flatMap(v => [v.x, v.y, v.z]);
+                    const colors = [];
+                    const divisions = Math.round(25 * curvePoints.length);
+                    const color = new THREE.Color();
+                    for (let i = 0, l = divisions; i < l; i++) {
+                        const t = i / l;
+                        color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                        colors.push(color.r, color.g, color.b);
+                    }
+                    const geometry = new LineGeometry().setPositions(positions);
+                    geometry.setColors(colors);
+                    const material = new LineMaterial({
+                        color: 0xffffff,
+                        linewidth: 5,
+                        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                        dashed: false,
+                        transparent: true,
+                        vertexColors: true,
+                    });
+                    const thickLine = new Line2(geometry, material);
+                    thickLine.computeLineDistances();
 
-                const colors = [];
-                const divisions = Math.round(25 * curvePoints.length);
-                const color = new THREE.Color();
-
-                for (let i = 0, l = divisions; i < l; i++) {
-                    const t = i / l;
-                    color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
-                    colors.push(color.r, color.g, color.b);
+                    cube.current.add(thickLine);
+                } else {
+                    allPathsInsideCube = false;
                 }
-
-                const geometry = new LineGeometry().setPositions(positions);
-                geometry.setColors(colors);
-
-                const material = new LineMaterial({
-                    color: 0xffffff,
-                    linewidth: 5,
-                    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    dashed: false,
-                    transparent: true,
-                    vertexColors: true,
-                });
-
-                const thickLine = new Line2(geometry, material);
-                thickLine.computeLineDistances();
-                cube.current.add(thickLine);
             });
+            if (!allPathsInsideCube) {
+                // Limpia las líneas existentes antes de agregar nuevas
+                cube.current.children.slice().forEach((child) => {
+                    if (child instanceof Line2) {
+                        cube.current.remove(child);
+                    }
+                });
+            }
         } else {
             console.warn('Invalid JSON format: "points" or "paths" property is missing.');
         }
@@ -462,58 +410,55 @@ const Cubo = () => {
         const input = document.createElement("input");
         input.type = "file";
         input.accept = ".json";
-
         input.addEventListener("change", (event) => {
             const file = event.target.files[0];
-
             if (file) {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     try {
-                        // Eliminar solo los elementos que no son parte del cubo base
-                        cube.current.children.slice(3).forEach((child) => {
-                            cube.current.remove(child);
-                        });
                         const data = JSON.parse(e.target.result);
-
+                        // Eliminar solo los elementos de puntos y líneas
+                        cube.current.children.slice().forEach((child) => {
+                            if (child instanceof THREE.Group) {
+                                cube.current.remove(child);
+                            } else if (child instanceof Line2) {
+                                cube.current.remove(child);
+                            }
+                        });
                         if ("imageURL" in data) {
                             cargarImagenDesdeURL(data.imageURL);
                         }
-
                         addPointsFromJSON(data);
                         agregarLineas(data);
-
-                        // Guardar los datos en el estado
-                        setJsonData(data);
                     } catch (error) {
                         console.error("Error parsing JSON file:", error);
-                        alert("Error al parsear 1 el archivo JSON. Asegúrate de que el formato sea correcto.");
+                        // Muestra una notificación en el navegador
+                        alert("Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.");
                     }
                 };
-
                 reader.readAsText(file);
             }
         });
-
         input.click();
     };
-
-
 
     const addPointsFromJSON = (data) => {
         if (!showPoints) {
             return;
         }
-
         if ('points' in data) {
             // Para un solo camino con la propiedad "points"
             const pointsData = data.points;
-
             if (!Array.isArray(pointsData) || pointsData.length === 0) {
                 console.warn('Invalid JSON format: "points" array is missing or empty.');
                 return;
             }
             const spheres = new THREE.Group();
+            let anyPointOutsideCube = false;
+            // Obtener la hora más baja y la hora más alta
+            const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const zRange = maxZ - minZ;
             pointsData.forEach((point) => {
                 if (
                     typeof point.x === 'number' &&
@@ -521,36 +466,57 @@ const Cubo = () => {
                     typeof point.z === 'string'
                 ) {
                     const time = new Date(`1970-01-01T${point.z}`);
-                    const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16); // Ajusta el radio y la calidad según tus preferencias
-                    const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
-                    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-
-                    sphere.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600);
-                    sphere.userData.isPoint = true;
-                    spheres.add(sphere);
+                    if (isNaN(time.getTime())) {
+                        alert("¡Advertencia! El formato de hora en al menos uno de los puntos no es válido.");
+                        return;
+                    }
+                    const normalizedZ = (time.getTime() - minZ) / zRange;
+                    const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+                    // Verificar si el punto está fuera del cubo antes de agregarlo
+                    if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+                        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                        // Almacenar los valores originales en userData
+                        sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
+                        sphere.position.set(point.x, point.y, scaledZ);
+                        sphere.userData.isPoint = true;
+                        spheres.add(sphere);
+                    } else {
+                        anyPointOutsideCube = true;
+                        alert("¡Advertencia! Al menos uno de los puntos está fuera del cubo.");
+                    }
                 } else {
-                    console.warn('Invalid point coordinates:', point);
+                    alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
                 }
             });
 
-            cube.current.add(spheres);
+            if (!anyPointOutsideCube) {
+                cube.current.add(spheres);
+            }
         } else if ('paths' in data) {
+            let minZ = Infinity;
+            let maxZ = -Infinity;
+            let allPathsInsideCube = true;
             // Para múltiples caminos con la propiedad "paths"
             if (!Array.isArray(data.paths) || data.paths.length === 0) {
                 console.warn('Invalid JSON format: "paths" array is missing or empty.');
                 return;
             }
-
+            const pathsGroup = new THREE.Group();
             data.paths.forEach((path) => {
                 const pointsData = path.points;
-
                 if (!Array.isArray(pointsData) || pointsData.length === 0) {
                     console.warn('Invalid path format: "points" array is missing or empty.');
                     return;
                 }
-
+                let allPointsInsidePath = true;
+                // Calcular la hora más baja y la hora más alta para todos los puntos
+                const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+                const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+                minZ = Math.min(minZ, pathMinZ);
+                maxZ = Math.max(maxZ, pathMaxZ);
                 const spheres = new THREE.Group();
-
                 pointsData.forEach((point) => {
                     if (
                         typeof point.x === 'number' &&
@@ -558,32 +524,55 @@ const Cubo = () => {
                         typeof point.z === 'string'
                     ) {
                         const time = new Date(`1970-01-01T${point.z}`);
-                        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16); // Ajusta el radio y la calidad según tus preferencias
-                        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
-                        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-
-                        sphere.position.set(point.x, point.y, time.getHours() + time.getMinutes() / 60 + time.getSeconds() / 3600);
-                        sphere.userData.isPoint = true;
-                        spheres.add(sphere);
+                        if (isNaN(time.getTime())) {
+                            alert("¡Advertencia! El formato de hora en al menos uno de los puntos no es válido.");
+                            return;
+                        }
+                        const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
+                        const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                            const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                            const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+                            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                            // Almacenar los valores originales en userData
+                            sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
+                            sphere.position.set(point.x, point.y, scaledZ);
+                            sphere.userData.isPoint = true;
+                            spheres.add(sphere);
+                        } else {
+                            allPointsInsidePath = false;
+                        }
                     } else {
-                        console.warn('Invalid point coordinates:', point);
+                        alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
+                        allPointsInsidePath = false;
                     }
                 });
 
-                cube.current.add(spheres);
+                if (allPointsInsidePath) {
+                    pathsGroup.add(spheres);
+                } else {
+                    allPathsInsideCube = false;
+                }
             });
+            if (allPathsInsideCube) {
+                cube.current.add(pathsGroup);
+            } else {
+                alert("¡Advertencia! Al menos uno de los caminos contiene puntos fuera del cubo.");
+            }
         } else {
             console.warn('Invalid JSON format: "points" or "paths" property is missing.');
-            alert("Error al parsear 2 el archivo JSON. Asegúrate de que el formato sea correcto.");
+            alert("Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.");
         }
     };
-
 
     const actualizarVisibilidad = () => {
         cube.current.children.forEach((child) => {
             if (child instanceof THREE.Group && child.children.length > 0) {
                 child.children.forEach((point) => {
-                    if (point instanceof THREE.Mesh) {
+                    // Verificar si es un punto en un camino y ajustar la visibilidad en consecuencia
+                    if (point.userData.isPoint && point.parent instanceof THREE.Group) {
+                        point.visible = showPoints;
+                    } else {
                         point.visible = showPoints;
                     }
                 });
@@ -597,10 +586,10 @@ const Cubo = () => {
 
     const onWindowResize = () => {
         const aspect = window.innerWidth / window.innerHeight;
-        camera.current.left = -10 * aspect;
-        camera.current.right = 10 * aspect;
-        camera.current.top = 10;
-        camera.current.bottom = -10;
+        camera.current.left = -30 * aspect;
+        camera.current.right = 30 * aspect;
+        camera.current.top = 30;
+        camera.current.bottom = -30;
         camera.current.updateProjectionMatrix();
 
         renderer.current.setSize(window.innerWidth, window.innerHeight);
@@ -616,7 +605,6 @@ const Cubo = () => {
 
     useEffect(() => {
         init();
-        // Limpiar controles al desmontar el componente
         return () => {
             controls.current.dispose();
         };
@@ -626,19 +614,53 @@ const Cubo = () => {
         actualizarVisibilidad();
     }, [showPoints, showLines]);
 
-    // Ejemplo:
-    useEffect(() => {
-        // Llamar a crearCubo después de cargar los datos
-        crearCubo();
-        if (jsonData) {
-            console.log("Datos cargados desde el archivo JSON:", jsonData);
-            // Puedes realizar operaciones adicionales con los datos cargados
-        }
-    }, [jsonData]);
-
     return (
-        <div id="scene-container">
-            {/* Contenedor para la escena y los controles */}
+        <div style={{ display: 'flex' }}>
+            <div class="container-fluid">
+                <div class="row flex-nowrap">
+                    <div class="col-auto col-md-3 col-xl-2 px-sm-2 px-0 bg-dark" style={{ position: 'fixed', height: '100vh' }}>
+                        <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
+
+                            <span class="fs-5 d-none d-sm-inline">Menu</span>
+
+                            <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start" id="menu">
+                                <li class="nav-item">
+                                    <label className="form-check-label" htmlFor="MostrarPuntos">
+                                        <input type="checkbox" className="form-check-input" id="MostrarPuntos" onChange={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} /> Mostrar Puntos
+                                    </label>
+                                </li>
+                                <li class="nav-item">
+                                    <label class="form-check-label" for="MostrarLineas">
+                                        <input type="checkbox" class="form-check-input" id="MostrarLineas" onChange={(e) => toggleMostrar('MostrarLineas', e.target.checked)} /> Mostrar Líneas
+                                    </label>
+                                </li>
+                                <li className="nav-item">
+                                    <label className="form-check-label" htmlFor="Fullscreen">
+                                        <input type="checkbox" className="form-check-input" id="Fullscreen" onChange={toggleFullscreen} /> Fullscreen
+                                    </label>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="btn btn-primary" onClick={resetCameraPosition}>Reset Position</button>
+                                </li>
+                                <li className="nav-item">
+                                    <button className="btn btn-primary" onClick={loadPointsFromJSON}>Cargar JSON</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="btn btn-primary" onClick={zoomIn}>Zoom In</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="btn btn-primary" onClick={zoomOut}>Zoom Out</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="btn btn-primary" onClick={imprimirPDF}>Imprimir PDF</button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="scene-container" style={{ flex: 1 }}>
+            </div>
         </div>
     );
 }
