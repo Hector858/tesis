@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
@@ -10,6 +10,9 @@ import { AxesHelper, ArrowHelper } from "three";
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { MeshBasicMaterial, Mesh } from "three";
+import { BsArrowsFullscreen, BsFiletypeJson } from "react-icons/bs";
+import { BiLineChart } from "react-icons/bi";
+import { FcScatterPlot } from "react-icons/fc";
 
 const Cubo = () => {
     const scene = useRef(null);
@@ -17,25 +20,24 @@ const Cubo = () => {
     const renderer = useRef(null);
     const cube = useRef(null);
     const controls = useRef(null);
-
-    let showPoints = true;
-    let showLines = true;
+    const [showPoints, setShowPoints] = useState(true);
+    const [showLines, setShowLines] = useState(true);
+    const [fullscreen, setFullscreen] = useState(false);
     let showLabels = true;
-
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let labelDiv = null;
+    const menuContainer = useRef(null);
+    const mainContainer = useRef(null);
 
     const init = () => {
-        // Configuración básica
         scene.current = new THREE.Scene();
-
         const aspect = window.innerWidth / window.innerHeight;
         camera.current = new THREE.OrthographicCamera(-30 * aspect, 30 * aspect, 30, -30, 0.1, 1000);
-
         renderer.current = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
         renderer.current.setSize(window.innerWidth, window.innerHeight);
         renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
+
         // Crear contenedor para la escena y los controles
         const container = document.getElementById("scene-container");
         container.appendChild(renderer.current.domElement);
@@ -71,32 +73,22 @@ const Cubo = () => {
 
         // Configuración del evento de mover el mouse
         document.addEventListener('mousemove', onMouseMove, false);
-
-        initGUI(container);
     };
-    
+
     const onMouseMove = (event) => {
         const containerBounds = document.getElementById("scene-container").getBoundingClientRect();
-    
         mouse.x = ((event.clientX - containerBounds.left) / containerBounds.width) * 2 - 1;
         mouse.y = -((event.clientY - containerBounds.top) / containerBounds.height) * 2 + 1;
-    
         raycaster.setFromCamera(mouse, camera.current);
-    
         const intersects = raycaster.intersectObjects(cube.current.children, true);
-    
         let selectedObject = null;
-    
         if (intersects.length > 0) {
             selectedObject = intersects.find((obj) => obj.object.userData.isPoint);
-    
             if (selectedObject) {
                 const originalValues = selectedObject.object.userData.originalValues;
                 const formattedOriginalValues = `Point: x=${originalValues.x.toFixed(2)}, y=${originalValues.y.toFixed(2)}, Hora=${originalValues.z}`;
-    
                 labelDiv.style.left = `${event.clientX + 10}px`;
                 labelDiv.style.top = `${event.clientY - 20}px`;
-    
                 labelDiv.innerText = formattedOriginalValues;
                 labelDiv.style.display = 'block';
             } else {
@@ -106,33 +98,48 @@ const Cubo = () => {
             labelDiv.style.display = 'none';
         }
     };
-    
     const toggleFullscreen = () => {
-        const container = document.getElementById("scene-container");
+        const container = mainContainer.current;
+        const menuContainerElem = menuContainer.current;
 
-        if (container.requestFullscreen) {
-            container.requestFullscreen();
-        } else if (container.mozRequestFullScreen) {
-            container.mozRequestFullScreen();
-        } else if (container.webkitRequestFullscreen) {
-            container.webkitRequestFullscreen();
-        } else if (container.msRequestFullscreen) {
-            container.msRequestFullscreen();
+        if (!fullscreen) {
+            // Intenta activar el modo de pantalla completa
+            if (container.requestFullscreen) {
+                container.requestFullscreen();
+            } else if (container.mozRequestFullScreen) {
+                container.mozRequestFullScreen();
+            } else if (container.webkitRequestFullscreen) {
+                container.webkitRequestFullscreen();
+            } else if (container.msRequestFullscreen) {
+                container.msRequestFullscreen();
+            }
+
+            // Intenta activar el modo de pantalla completa para el contenedor del menú
+            if (menuContainerElem.requestFullscreen) {
+                menuContainerElem.requestFullscreen();
+            } else if (menuContainerElem.mozRequestFullScreen) {
+                menuContainerElem.mozRequestFullScreen();
+            } else if (menuContainerElem.webkitRequestFullscreen) {
+                menuContainerElem.webkitRequestFullscreen();
+            } else if (menuContainerElem.msRequestFullscreen) {
+                menuContainerElem.msRequestFullscreen();
+            }
+        } else {
+            // Intenta salir del modo de pantalla completa
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
         }
-    };
 
-    const exitFullscreen = () => {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-            document.mozCancelFullScreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
-        }
+        // Actualiza el estado fullscreen
+        setFullscreen(!fullscreen);
     };
-
     const resetCameraPosition = () => {
         camera.current.position.set(0, 0, 40);
         camera.current.lookAt(new THREE.Vector3(0, 0, 0));
@@ -150,46 +157,14 @@ const Cubo = () => {
         camera.current.updateProjectionMatrix();
     };
 
-    const initGUI = (container) => {
-        const guiContainer = document.createElement("div");
-        container.appendChild(guiContainer);
+    const toggleMostrar = (tipo, isChecked) => {
+        if (tipo === 'MostrarPuntos') {
+            setShowPoints(isChecked);
+        } else if (tipo === 'MostrarLineas') {
+            setShowLines(isChecked);
+        }
 
-        // Agrega controles y configuraciones del GUI aquí
-        const gui = new GUI({ autoPlace: false });
-        const folder = gui.addFolder("Opciones");
-
-        folder.add({ MostrarPuntos: showPoints }, "MostrarPuntos").onChange((value) => {
-            showPoints = value;
-            actualizarVisibilidad();
-        });
-
-        folder.add({ MostrarLineas: showLines }, "MostrarLineas").onChange((value) => {
-            showLines = value;
-            actualizarVisibilidad();
-        });
-
-        folder.add({ Fullscreen: false }, "Fullscreen").onChange((value) => {
-            if (value) {
-                toggleFullscreen();
-            } else {
-                exitFullscreen();
-            }
-            // Restaurar el valor a false para que el botón esté disponible para el próximo clic
-            //folder.__controllers[0].setValue(false);
-        });
-
-        folder.add({ ResetPosition: () => resetCameraPosition() }, "ResetPosition");
-
-        folder.add({ CargarJSON: () => loadPointsFromJSON() }, "CargarJSON");
-
-        folder.add({ ZoomIn: () => zoomIn() }, "ZoomIn"); // Botón para disminuir el zoom
-        folder.add({ ZoomOut: () => zoomOut() }, "ZoomOut"); // Botón para aumentar el zoom
-        folder.add({ ImprimirPDF: () => imprimirPDF() }, "ImprimirPDF");
-
-        guiContainer.appendChild(gui.domElement);
-        gui.domElement.style.position = "absolute";
-        gui.domElement.style.top = "90px";
-        gui.domElement.style.left = "0px";
+        actualizarVisibilidad();
     };
 
     const imprimirPDF = () => {
@@ -212,12 +187,10 @@ const Cubo = () => {
             const axesHelper = new AxesHelper(30);
             axesHelper.position.set(-15, -15, 0);
             cube.current.add(axesHelper);
-
             // Agregar flechas al final de los ejes
             const arrowX = new ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(15, -15, 0), 10, 0xff0000);
             const arrowY = new ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-15, 15, 0), 10, 0x00ff00);
             const arrowZ = new ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-15, -15, 30), 10, 0x0000ff);
-
             // Ajusta la longitud de las flechas según tus preferencias
             cube.current.add(arrowX);
             cube.current.add(arrowY);
@@ -241,19 +214,16 @@ const Cubo = () => {
         const material = new THREE.MeshBasicMaterial({
             color: 0x00ff00,
             transparent: true,
-            opacity: 0.3,
+            opacity: 0.1,
         });
         const plane1 = new THREE.Mesh(geometry, material);
         const plane2 = new THREE.Mesh(geometry, material);
         // Asignar propiedad adicional a los planos
         plane1.isPlane = true;
         plane2.isPlane = true;
-
         plane2.position.z = 30;
-
         const boxGeo = new THREE.BoxGeometry(30, 30, 30);
         const edgeGeo = new THREE.EdgesGeometry(boxGeo);
-
         const line = new THREE.LineSegments(
             edgeGeo,
             new THREE.LineBasicMaterial({
@@ -262,7 +232,6 @@ const Cubo = () => {
             })
         );
         line.position.z = 15;
-
         cube.current = new THREE.Group();
         cube.current.add(plane1);
         cube.current.add(plane2);
@@ -270,16 +239,13 @@ const Cubo = () => {
         scene.current.add(cube.current);
     };
 
-    // Función para agregar texto al cubo
     const agregarTexto = (text, font, x, y, z) => {
         const geometry = new TextGeometry(text, {
             font: font,
             size: 1, // Ajusta el tamaño del texto según tus preferencias
             height: 0.2, // Ajusta la altura del texto según tus preferencias
         });
-
-        const material = new MeshBasicMaterial({ color: 0x000000 }); // Ajusta el color del texto según tus preferencias
-
+        const material = new MeshBasicMaterial({ color: 0x000000 });
         const textMesh = new Mesh(geometry, material);
         textMesh.position.set(x, y, z);
         cube.current.add(textMesh);
@@ -293,17 +259,14 @@ const Cubo = () => {
         if ('points' in data) {
             // Para un solo camino con la propiedad "points"
             const pointsData = data.points;
-            let anyPointOutsideCube = false; 
-
+            let anyPointOutsideCube = false;
             if (!Array.isArray(pointsData) || pointsData.length < 2) {
                 console.warn('Invalid path format: "points" array is missing or has insufficient points.');
                 return;
             }
-
             const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
             const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
             const zRange = maxZ - minZ;
-
             const curvePoints = pointsData.flatMap((point) => {
                 if (
                     typeof point.x === 'number' &&
@@ -313,9 +276,9 @@ const Cubo = () => {
                     const time = new Date(`1970-01-01T${point.z}`);
                     const normalizedZ = (time.getTime() - minZ) / zRange;
                     const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
-                    if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15){
+                    if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
                         return new THREE.Vector3(point.x, point.y, scaledZ);
-                    }else {
+                    } else {
                         anyPointOutsideCube = true;
                         return [];
                     }
@@ -324,29 +287,23 @@ const Cubo = () => {
                     return [];
                 }
             });
-
             if (curvePoints.length < 2) {
                 console.warn('Not enough valid points to create lines.');
                 return;
             }
-
             const curve = new THREE.CatmullRomCurve3(curvePoints);
-            const points = curve.getPoints(50);
+            const points = curve.getPoints(180);
             const positions = points.flatMap(v => [v.x, v.y, v.z]);
-
             const colors = [];
-            const divisions = Math.round(25 * curvePoints.length);
+            const divisions = Math.round(100 * curvePoints.length);
             const color = new THREE.Color();
-
             for (let i = 0, l = divisions; i < l; i++) {
                 const t = i / l;
                 color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
                 colors.push(color.r, color.g, color.b);
             }
-
             const geometry = new LineGeometry().setPositions(positions);
             geometry.setColors(colors);
-
             const material = new LineMaterial({
                 color: 0xffffff,
                 linewidth: 5,
@@ -355,10 +312,8 @@ const Cubo = () => {
                 transparent: true,
                 vertexColors: true,
             });
-
             const thickLine = new Line2(geometry, material);
             thickLine.computeLineDistances();
-
             if (!anyPointOutsideCube) {
                 cube.current.add(thickLine);
             }
@@ -368,28 +323,21 @@ const Cubo = () => {
                 console.warn('Invalid JSON format: "paths" array is missing or empty.');
                 return;
             }
-
             let minZ = Infinity;
             let maxZ = -Infinity;
             let allPathsInsideCube = true;
-
             data.paths.forEach((path) => {
                 const pointsData = path.points;
-
                 if (!Array.isArray(pointsData) || pointsData.length < 2) {
                     console.warn('Invalid path format: "points" array is missing or has insufficient points.');
                     return;
                 }
-
                 // Calcular la hora más baja y la hora más alta para todos los puntos
                 const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
                 const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-
                 minZ = Math.min(minZ, pathMinZ);
                 maxZ = Math.max(maxZ, pathMaxZ);
-
                 let allPointsInsidePath = true;
-
                 const curvePoints = pointsData.flatMap((point) => {
                     if (
                         typeof point.x === 'number' &&
@@ -401,9 +349,9 @@ const Cubo = () => {
 
                         const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
 
-                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15){
+                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
                             return new THREE.Vector3(point.x, point.y, scaledZ);
-                        }else {
+                        } else {
                             allPointsInsidePath = false;
                             return [];
                         }
@@ -417,25 +365,21 @@ const Cubo = () => {
                     console.warn('Not enough valid points to create lines.');
                     return;
                 }
-
                 if (curvePoints.length >= 3 && allPointsInsidePath) {
                     const curve = new THREE.CatmullRomCurve3(curvePoints);
-                    const points = curve.getPoints(50);
+                    const points = curve.getPoints(180);
                     const positions = points.flatMap(v => [v.x, v.y, v.z]);
-    
+
                     const colors = [];
-                    const divisions = Math.round(25 * curvePoints.length);
+                    const divisions = Math.round(100 * curvePoints.length);
                     const color = new THREE.Color();
-    
                     for (let i = 0, l = divisions; i < l; i++) {
                         const t = i / l;
                         color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
                         colors.push(color.r, color.g, color.b);
                     }
-    
                     const geometry = new LineGeometry().setPositions(positions);
                     geometry.setColors(colors);
-    
                     const material = new LineMaterial({
                         color: 0xffffff,
                         linewidth: 5,
@@ -444,16 +388,14 @@ const Cubo = () => {
                         transparent: true,
                         vertexColors: true,
                     });
-    
                     const thickLine = new Line2(geometry, material);
                     thickLine.computeLineDistances();
-    
+
                     cube.current.add(thickLine);
                 } else {
                     allPathsInsideCube = false;
                 }
             });
-
             if (!allPathsInsideCube) {
                 // Limpia las líneas existentes antes de agregar nuevas
                 cube.current.children.slice().forEach((child) => {
@@ -488,16 +430,13 @@ const Cubo = () => {
         const input = document.createElement("input");
         input.type = "file";
         input.accept = ".json";
-
         input.addEventListener("change", (event) => {
             const file = event.target.files[0];
-
             if (file) {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     try {
                         const data = JSON.parse(e.target.result);
-
                         // Eliminar solo los elementos de puntos y líneas
                         cube.current.children.slice().forEach((child) => {
                             if (child instanceof THREE.Group) {
@@ -506,11 +445,9 @@ const Cubo = () => {
                                 cube.current.remove(child);
                             }
                         });
-
                         if ("imageURL" in data) {
                             cargarImagenDesdeURL(data.imageURL);
                         }
-
                         addPointsFromJSON(data);
                         agregarLineas(data);
                     } catch (error) {
@@ -519,11 +456,9 @@ const Cubo = () => {
                         alert("Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.");
                     }
                 };
-
                 reader.readAsText(file);
             }
         });
-
         input.click();
     };
 
@@ -531,25 +466,19 @@ const Cubo = () => {
         if (!showPoints) {
             return;
         }
-
         if ('points' in data) {
             // Para un solo camino con la propiedad "points"
             const pointsData = data.points;
-
             if (!Array.isArray(pointsData) || pointsData.length === 0) {
                 console.warn('Invalid JSON format: "points" array is missing or empty.');
                 return;
             }
-
             const spheres = new THREE.Group();
-
             let anyPointOutsideCube = false;
-
             // Obtener la hora más baja y la hora más alta
             const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
             const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
             const zRange = maxZ - minZ;
-
             pointsData.forEach((point) => {
                 if (
                     typeof point.x === 'number' &&
@@ -562,18 +491,14 @@ const Cubo = () => {
                         return;
                     }
                     const normalizedZ = (time.getTime() - minZ) / zRange;
-
                     const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
-
                     // Verificar si el punto está fuera del cubo antes de agregarlo
                     if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
                         const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
                         const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
                         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-
                         // Almacenar los valores originales en userData
                         sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
-
                         sphere.position.set(point.x, point.y, scaledZ);
                         sphere.userData.isPoint = true;
                         spheres.add(sphere);
@@ -598,28 +523,20 @@ const Cubo = () => {
                 console.warn('Invalid JSON format: "paths" array is missing or empty.');
                 return;
             }
-
             const pathsGroup = new THREE.Group();
-
             data.paths.forEach((path) => {
                 const pointsData = path.points;
-
                 if (!Array.isArray(pointsData) || pointsData.length === 0) {
                     console.warn('Invalid path format: "points" array is missing or empty.');
                     return;
                 }
-
                 let allPointsInsidePath = true;
-
                 // Calcular la hora más baja y la hora más alta para todos los puntos
                 const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
                 const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-
                 minZ = Math.min(minZ, pathMinZ);
                 maxZ = Math.max(maxZ, pathMaxZ);
-
                 const spheres = new THREE.Group();
-
                 pointsData.forEach((point) => {
                     if (
                         typeof point.x === 'number' &&
@@ -632,21 +549,17 @@ const Cubo = () => {
                             return;
                         }
                         const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
-
                         const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
-
-                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15){
+                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
                             const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
                             const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
                             const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    
                             // Almacenar los valores originales en userData
                             sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
-    
                             sphere.position.set(point.x, point.y, scaledZ);
                             sphere.userData.isPoint = true;
                             spheres.add(sphere);
-                        }else {
+                        } else {
                             allPointsInsidePath = false;
                         }
                     } else {
@@ -722,8 +635,52 @@ const Cubo = () => {
     }, [showPoints, showLines]);
 
     return (
-        <div id="scene-container">
-            {/* Contenedor para la escena y los controles */}
+        <div style={{ display: 'flex' }} ref={mainContainer}>
+            <div class="container-fluid" ref={menuContainer}>
+                <div class="row flex-nowrap">
+                    <div class="col-auto col-md-3 col-xl-2 px-sm-2 px-0 bg-dark" style={{ position: 'fixed', height: '100vh' }}>
+                        <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
+
+                            <span class="fs-5 d-none d-sm-inline">Menu</span>
+
+                            <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start" id="menu">
+                                <li class="nav-item">
+                                    <label className="form-check-label" htmlFor="MostrarPuntos">
+                                        <input type="checkbox" className="form-check-input" id="MostrarPuntos" onChange={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} defaultChecked/> Mostrar Puntos
+                                    </label>
+                                </li>
+                                <li class="nav-item">
+                                    <label class="form-check-label" for="MostrarLineas">
+                                        <input type="checkbox" class="form-check-input" id="MostrarLineas" onChange={(e) => toggleMostrar('MostrarLineas', e.target.checked)} defaultChecked/> <i class="fas fa-bars"></i>Mostrar Líneas
+                                    </label>
+                                </li>
+                                <li className="nav-item">
+                                    <label className="form-check-label" htmlFor="Fullscreen">
+                                        <input type="checkbox" className="form-check-input" id="Fullscreen" onChange={toggleFullscreen} /> Fullscreen
+                                    </label>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="btn btn-primary" onClick={resetCameraPosition}>Reset Position</button>
+                                </li>
+                                <li className="nav-item">
+                                    <button className="btn btn-primary" onClick={loadPointsFromJSON}>Cargar JSON</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="btn btn-primary" onClick={zoomIn}>Zoom -</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="btn btn-primary" onClick={zoomOut}>Zoom +</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="btn btn-primary" onClick={imprimirPDF}>Imprimir PDF</button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="scene-container" style={{ flex: 1 }}>
+            </div>
         </div>
     );
 }
