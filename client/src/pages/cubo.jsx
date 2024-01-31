@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -10,9 +9,11 @@ import { AxesHelper, ArrowHelper } from "three";
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { MeshBasicMaterial, Mesh } from "three";
-import { BsArrowsFullscreen, BsFiletypeJson } from "react-icons/bs";
-import { BiLineChart } from "react-icons/bi";
+import { BsArrowsFullscreen, BsFiletypeJson, BsFillDashSquareFill, BsPlusSquareFill } from "react-icons/bs";
+import { BiLineChart, BiSolidFilePdf, BiSolidCheckbox } from "react-icons/bi";
 import { FcScatterPlot } from "react-icons/fc";
+import { AiOutlineMenu } from "react-icons/ai";
+import { Sidebar, Menu, MenuItem } from 'react-pro-sidebar';
 
 const Cubo = () => {
     const scene = useRef(null);
@@ -29,6 +30,12 @@ const Cubo = () => {
     let labelDiv = null;
     const menuContainer = useRef(null);
     const mainContainer = useRef(null);
+    const [showSidebar, setShowSidebar] = useState(false);
+    const [hoveredItem, setHoveredItem] = useState(null);
+
+    const handleMenuToggle = () => {
+        setShowSidebar(!showSidebar);
+    };
 
     const init = () => {
         scene.current = new THREE.Scene();
@@ -157,11 +164,11 @@ const Cubo = () => {
         camera.current.updateProjectionMatrix();
     };
 
-    const toggleMostrar = (tipo, isChecked) => {
+    const toggleMostrar = (tipo) => {
         if (tipo === 'MostrarPuntos') {
-            setShowPoints(isChecked);
+            setShowPoints(!showPoints);
         } else if (tipo === 'MostrarLineas') {
-            setShowLines(isChecked);
+            setShowLines(!showLines);
         }
 
         actualizarVisibilidad();
@@ -214,7 +221,7 @@ const Cubo = () => {
         const material = new THREE.MeshBasicMaterial({
             color: 0x00ff00,
             transparent: true,
-            opacity: 0.1,
+            opacity: 0,
         });
         const plane1 = new THREE.Mesh(geometry, material);
         const plane2 = new THREE.Mesh(geometry, material);
@@ -636,49 +643,47 @@ const Cubo = () => {
 
     return (
         <div style={{ display: 'flex' }} ref={mainContainer}>
-            <div class="container-fluid" ref={menuContainer}>
-                <div class="row flex-nowrap">
-                    <div class="col-auto col-md-3 col-xl-2 px-sm-2 px-0 bg-dark" style={{ position: 'fixed', height: '100vh' }}>
-                        <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
+            <Sidebar collapsed={!showSidebar} style={{ height: "100vh", position: 'fixed' }}backgroundColor="rgba(7,21,56,255)" ref={menuContainer}>
+            
+                <Menu iconShape="square">
 
-                            <span class="fs-5 d-none d-sm-inline">Menu</span>
-
-                            <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start" id="menu">
-                                <li class="nav-item">
-                                    <label className="form-check-label" htmlFor="MostrarPuntos">
-                                        <input type="checkbox" className="form-check-input" id="MostrarPuntos" onChange={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} defaultChecked/> Mostrar Puntos
-                                    </label>
-                                </li>
-                                <li class="nav-item">
-                                    <label class="form-check-label" for="MostrarLineas">
-                                        <input type="checkbox" class="form-check-input" id="MostrarLineas" onChange={(e) => toggleMostrar('MostrarLineas', e.target.checked)} defaultChecked/> <i class="fas fa-bars"></i>Mostrar Líneas
-                                    </label>
-                                </li>
-                                <li className="nav-item">
-                                    <label className="form-check-label" htmlFor="Fullscreen">
-                                        <input type="checkbox" className="form-check-input" id="Fullscreen" onChange={toggleFullscreen} /> Fullscreen
-                                    </label>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="btn btn-primary" onClick={resetCameraPosition}>Reset Position</button>
-                                </li>
-                                <li className="nav-item">
-                                    <button className="btn btn-primary" onClick={loadPointsFromJSON}>Cargar JSON</button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="btn btn-primary" onClick={zoomIn}>Zoom -</button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="btn btn-primary" onClick={zoomOut}>Zoom +</button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="btn btn-primary" onClick={imprimirPDF}>Imprimir PDF</button>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                    <MenuItem icon={<AiOutlineMenu style={{ fontSize: '35px', color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }}/>}onClick={() => { handleMenuToggle();}} style={{ textAlign: "center", color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(0)}
+                    onMouseLeave={() => setHoveredItem(null)}>{" "}<h2>Menú</h2></MenuItem>
+                    
+                    <MenuItem style={{ color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} icon={<FcScatterPlot style={{ fontSize: '35px', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} onMouseEnter={() => setHoveredItem(1)}
+                    onMouseLeave={() => setHoveredItem(null)} defaultChecked>
+                        <b>Puntos</b>
+                    </MenuItem>
+                    <MenuItem style={{ color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiLineChart style={{ fontSize: '35px', color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarLineas', e.target.checked)} onMouseEnter={() => setHoveredItem(2)}
+                    onMouseLeave={() => setHoveredItem(null)} defaultChecked>
+                        <b>Líneas</b>
+                    </MenuItem>
+                    <MenuItem style={{ color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsArrowsFullscreen style={{ fontSize: '30px', color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={toggleFullscreen} onMouseEnter={() => setHoveredItem(3)}
+                    onMouseLeave={() => setHoveredItem(null)}>
+                        <b>Fullscreen</b>
+                    </MenuItem>
+                    <MenuItem style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidCheckbox style={{ fontSize: '35px', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={resetCameraPosition} onMouseEnter={() => setHoveredItem(4)}
+                    onMouseLeave={() => setHoveredItem(null)}>
+                        <b>Restablecer posición</b>
+                    </MenuItem>
+                    <MenuItem style={{ color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFiletypeJson style={{ fontSize: '30px', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'yellow' }} />} onClick={loadPointsFromJSON} onMouseEnter={() => setHoveredItem(5)}
+                    onMouseLeave={() => setHoveredItem(null)}>
+                        <b>Cargar JSON</b>
+                    </MenuItem>
+                    <MenuItem style={{ color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFillDashSquareFill style={{ fontSize: '30px', color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomIn} onMouseEnter={() => setHoveredItem(6)}
+                    onMouseLeave={() => setHoveredItem(null)}>
+                        <b>Zoom -</b>
+                    </MenuItem>
+                    <MenuItem style={{ color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsPlusSquareFill style={{ fontSize: '30px', color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomOut} onMouseEnter={() => setHoveredItem(7)}
+                    onMouseLeave={() => setHoveredItem(null)}>
+                        <b>Zoom +</b>
+                    </MenuItem>
+                    <MenuItem style={{ color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '35px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
+                    onMouseLeave={() => setHoveredItem(null)}>
+                        <b>Descarga Reporte</b>
+                    </MenuItem>
+                </Menu>
+            </Sidebar>
             <div id="scene-container" style={{ flex: 1 }}>
             </div>
         </div>
