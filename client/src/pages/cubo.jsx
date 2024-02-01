@@ -10,7 +10,8 @@ import { AxesHelper, ArrowHelper } from "three";
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { MeshBasicMaterial, Mesh } from "three";
-
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 const Cubo = () => {
     const scene = useRef(null);
     const camera = useRef(null);
@@ -24,13 +25,18 @@ const Cubo = () => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let labelDiv = null;
-
+    const menuContainer = useRef(null);
+    const mainContainer = useRef(null);
+    // const [jsonData, setJsonData] = useState(null);
+    const [startHour, setStartHour] = useState("00:00");
+    const [endHour, setEndHour] = useState("24:00");
+    const [data2, setData2] = useState(null);
     const init = () => {
         scene.current = new THREE.Scene();
-        const aspect = 1140 / 555; //aqui igual
+        const aspect = window.innerWidth / window.innerHeight;
         camera.current = new THREE.OrthographicCamera(-30 * aspect, 30 * aspect, 30, -30, 0.1, 1000);
         renderer.current = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
-        renderer.current.setSize(1140, 555); //aqui es el tamaño de la escena
+        renderer.current.setSize(window.innerWidth, window.innerHeight);
         renderer.current.setClearColor(new THREE.Color().setRGB(0.5, 0.5, 0.7));
 
         // Crear contenedor para la escena y los controles
@@ -94,9 +100,11 @@ const Cubo = () => {
         }
     };
     const toggleFullscreen = () => {
-        const container = document.getElementById("scene-container");
+        const container = mainContainer.current;
+        const menuContainerElem = menuContainer.current;
 
         if (!fullscreen) {
+            // Intenta activar el modo de pantalla completa
             if (container.requestFullscreen) {
                 container.requestFullscreen();
             } else if (container.mozRequestFullScreen) {
@@ -106,7 +114,19 @@ const Cubo = () => {
             } else if (container.msRequestFullscreen) {
                 container.msRequestFullscreen();
             }
+
+            // Intenta activar el modo de pantalla completa para el contenedor del menú
+            if (menuContainerElem.requestFullscreen) {
+                menuContainerElem.requestFullscreen();
+            } else if (menuContainerElem.mozRequestFullScreen) {
+                menuContainerElem.mozRequestFullScreen();
+            } else if (menuContainerElem.webkitRequestFullscreen) {
+                menuContainerElem.webkitRequestFullscreen();
+            } else if (menuContainerElem.msRequestFullscreen) {
+                menuContainerElem.msRequestFullscreen();
+            }
         } else {
+            // Intenta salir del modo de pantalla completa
             if (document.exitFullscreen) {
                 document.exitFullscreen();
             } else if (document.mozCancelFullScreen) {
@@ -117,9 +137,10 @@ const Cubo = () => {
                 document.msExitFullscreen();
             }
         }
+
+        // Actualiza el estado fullscreen
         setFullscreen(!fullscreen);
     };
-
     const resetCameraPosition = () => {
         camera.current.position.set(0, 0, 40);
         camera.current.lookAt(new THREE.Vector3(0, 0, 0));
@@ -148,14 +169,43 @@ const Cubo = () => {
     };
 
     const imprimirPDF = () => {
-        const container = document.getElementById("scene-container");
+        const sceneContainer = document.getElementById("scene-container");
 
-        html2pdf(container, {
-            margin: 10,
-            filename: 'escenario.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        // Crear un nuevo objeto jsPDF
+        const pdf = new jsPDF({
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'landscape',
+        });
+
+        // Definir el estilo del título
+        const estiloTitulo = {
+            fontSize: 16,  // Tamaño de fuente más grande
+            fontWeight: 'bold',  // Texto en negrita
+            align: 'center',  // Alineación centrada
+        };
+
+        // Agregar el título al PDF con el nuevo estilo
+        pdf.text('Gráfica de datos espacio-temporales', pdf.internal.pageSize.getWidth() / 2, 10, estiloTitulo);
+
+        // Agregar la descripción al PDF con el nombre del archivo
+        const descripcion = `A continuación, se presenta la gráfica generada por la aplicación web NOMBREDEAPP la cual se encarga de presentar en forma de cubo los datos.`;
+
+        // Ajustar el estilo de la descripción
+        pdf.setFontSize(12);  // Tamaño de fuente para la descripción
+        pdf.text(descripcion, 10, 20);
+
+        // Renderizar el contenido HTML del contenedor en una imagen usando html2canvas
+        html2canvas(sceneContainer).then((canvas) => {
+            const imgData = canvas.toDataURL('image/jpeg');
+            const imgWidth = pdf.internal.pageSize.getWidth() - 20;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            // Agregar la imagen al PDF
+            pdf.addImage(imgData, 'JPEG', 10, 30, imgWidth, imgHeight);
+
+            // Guardar el PDF con el mismo nombre y formato que especificaste
+            pdf.save('escenario.pdf');
         });
     };
 
@@ -272,10 +322,10 @@ const Cubo = () => {
                 return;
             }
             const curve = new THREE.CatmullRomCurve3(curvePoints);
-            const points = curve.getPoints(50);
+            const points = curve.getPoints(180);
             const positions = points.flatMap(v => [v.x, v.y, v.z]);
             const colors = [];
-            const divisions = Math.round(25 * curvePoints.length);
+            const divisions = Math.round(100 * curvePoints.length);
             const color = new THREE.Color();
             for (let i = 0, l = divisions; i < l; i++) {
                 const t = i / l;
@@ -347,11 +397,11 @@ const Cubo = () => {
                 }
                 if (curvePoints.length >= 3 && allPointsInsidePath) {
                     const curve = new THREE.CatmullRomCurve3(curvePoints);
-                    const points = curve.getPoints(50);
+                    const points = curve.getPoints(180);
                     const positions = points.flatMap(v => [v.x, v.y, v.z]);
 
                     const colors = [];
-                    const divisions = Math.round(25 * curvePoints.length);
+                    const divisions = Math.round(100 * curvePoints.length);
                     const color = new THREE.Color();
                     for (let i = 0, l = divisions; i < l; i++) {
                         const t = i / l;
@@ -406,6 +456,15 @@ const Cubo = () => {
         });
     };
 
+    useEffect(() => {
+        console.log("Data2:", data2);
+        // Verificar que data2 no sea nulo y luego llamar a la función
+        if (data2) {
+            console.log("Calling addPointsFromJSON");
+            addPointsFromJSON(data2);
+        }
+    }, [data2, startHour, endHour]); // Este efecto se ejecutará cuando data2, startHour o endHour cambien
+
     const loadPointsFromJSON = () => {
         const input = document.createElement("input");
         input.type = "file";
@@ -417,6 +476,7 @@ const Cubo = () => {
                 reader.onload = async (e) => {
                     try {
                         const data = JSON.parse(e.target.result);
+                        setData2(data);
                         // Eliminar solo los elementos de puntos y líneas
                         cube.current.children.slice().forEach((child) => {
                             if (child instanceof THREE.Group) {
@@ -442,10 +502,12 @@ const Cubo = () => {
         input.click();
     };
 
-    const addPointsFromJSON = (data) => {
+    const addPointsFromJSON = (data, filterStartHour, filterEndHour) => {
         if (!showPoints) {
             return;
         }
+
+        const filteredPoints = [];
         if ('points' in data) {
             // Para un solo camino con la propiedad "points"
             const pointsData = data.points;
@@ -459,6 +521,7 @@ const Cubo = () => {
             const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
             const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
             const zRange = maxZ - minZ;
+
             pointsData.forEach((point) => {
                 if (
                     typeof point.x === 'number' &&
@@ -470,21 +533,25 @@ const Cubo = () => {
                         alert("¡Advertencia! El formato de hora en al menos uno de los puntos no es válido.");
                         return;
                     }
-                    const normalizedZ = (time.getTime() - minZ) / zRange;
-                    const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
-                    // Verificar si el punto está fuera del cubo antes de agregarlo
-                    if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
-                        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-                        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
-                        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-                        // Almacenar los valores originales en userData
-                        sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
-                        sphere.position.set(point.x, point.y, scaledZ);
-                        sphere.userData.isPoint = true;
-                        spheres.add(sphere);
-                    } else {
-                        anyPointOutsideCube = true;
-                        alert("¡Advertencia! Al menos uno de los puntos está fuera del cubo.");
+                    const pointTime = time.getTime();
+                    // Verificar si el punto está dentro del rango de horas especificado
+                    if (pointTime >= filterStartHour && pointTime <= filterEndHour) {
+                        const normalizedZ = (time.getTime() - minZ) / zRange;
+                        const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+                        // Verificar si el punto está fuera del cubo antes de agregarlo
+                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                            const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                            const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+                            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                            // Almacenar los valores originales en userData
+                            sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
+                            sphere.position.set(point.x, point.y, scaledZ);
+                            sphere.userData.isPoint = true;
+                            spheres.add(sphere);
+                        } else {
+                            anyPointOutsideCube = true;
+                            alert("¡Advertencia! Al menos uno de los puntos está fuera del cubo.");
+                        }
                     }
                 } else {
                     alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
@@ -615,8 +682,8 @@ const Cubo = () => {
     }, [showPoints, showLines]);
 
     return (
-        <div style={{ display: 'flex' }}>
-            <div class="container-fluid">
+        <div style={{ display: 'flex' }} ref={mainContainer}>
+            <div class="container-fluid" ref={menuContainer}>
                 <div class="row flex-nowrap">
                     <div class="col-auto col-md-3 col-xl-2 px-sm-2 px-0 bg-dark" style={{ position: 'fixed', height: '100vh' }}>
                         <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
@@ -626,12 +693,12 @@ const Cubo = () => {
                             <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start" id="menu">
                                 <li class="nav-item">
                                     <label className="form-check-label" htmlFor="MostrarPuntos">
-                                        <input type="checkbox" className="form-check-input" id="MostrarPuntos" onChange={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} /> Mostrar Puntos
+                                        <input type="checkbox" className="form-check-input" id="MostrarPuntos" onChange={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} defaultChecked /> Mostrar Puntos
                                     </label>
                                 </li>
                                 <li class="nav-item">
                                     <label class="form-check-label" for="MostrarLineas">
-                                        <input type="checkbox" class="form-check-input" id="MostrarLineas" onChange={(e) => toggleMostrar('MostrarLineas', e.target.checked)} /> Mostrar Líneas
+                                        <input type="checkbox" class="form-check-input" id="MostrarLineas" onChange={(e) => toggleMostrar('MostrarLineas', e.target.checked)} defaultChecked /> <i class="fas fa-bars"></i>Mostrar Líneas
                                     </label>
                                 </li>
                                 <li className="nav-item">
@@ -646,14 +713,52 @@ const Cubo = () => {
                                     <button className="btn btn-primary" onClick={loadPointsFromJSON}>Cargar JSON</button>
                                 </li>
                                 <li class="nav-item">
-                                    <button class="btn btn-primary" onClick={zoomIn}>Zoom In</button>
+                                    <button class="btn btn-primary" onClick={zoomIn}>Zoom -</button>
                                 </li>
                                 <li class="nav-item">
-                                    <button class="btn btn-primary" onClick={zoomOut}>Zoom Out</button>
+                                    <button class="btn btn-primary" onClick={zoomOut}>Zoom +</button>
                                 </li>
                                 <li class="nav-item">
                                     <button class="btn btn-primary" onClick={imprimirPDF}>Imprimir PDF</button>
                                 </li>
+                                <select
+                                    className="form-control"
+                                    value={startHour}
+                                    onChange={(e) => {
+                                        setStartHour(e.target.value);
+                                        // Llamar a la función cuando cambie la hora de inicio
+                                        const filterStartHour = new Date(`1970-01-01T${e.target.value}`).getTime();
+                                        const filterEndHour = new Date(`1970-01-01T${endHour}`).getTime();
+                                        addPointsFromJSON(data2, filterStartHour, filterEndHour);
+                                    }}
+                                >
+                                    {/* Generar opciones para la hora de inicio */}
+                                    {Array.from({ length: 25 }, (_, i) => i)
+                                        .map((hour) => hour.toString().padStart(2, '0'))
+                                        .map((hour) => (
+                                            <option key={hour} value={`${hour}:00`}>{`${hour}:00`}</option>
+                                        ))}
+                                </select>
+
+                                <select
+                                    className="form-control"
+                                    value={endHour}
+                                    onChange={(e) => {
+                                        setEndHour(e.target.value);
+                                        // Llamar a la función cuando cambie la hora final
+                                        const filterStartHour = new Date(`1970-01-01T${startHour}`).getTime();
+                                        const filterEndHour = new Date(`1970-01-01T${e.target.value}`).getTime();
+                                        addPointsFromJSON(data2, filterStartHour, filterEndHour);
+                                    }}
+                                >
+                                    {/* Generar opciones para la hora final */}
+                                    {Array.from({ length: 25 }, (_, i) => i)
+                                        .map((hour) => hour.toString().padStart(2, '0'))
+                                        .map((hour) => (
+                                            <option key={hour} value={`${hour}:00`}>{`${hour}:00`}</option>
+                                        ))}
+                                </select>
+
                             </ul>
                         </div>
                     </div>

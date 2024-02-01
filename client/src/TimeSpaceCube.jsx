@@ -10,10 +10,6 @@ import { AxesHelper, ArrowHelper } from "three";
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { MeshBasicMaterial, Mesh } from "three";
-
-// import jsPDF from 'jspdf';
-// import html2canvas from 'html2canvas';
-
 const Cubo = () => {
     const scene = useRef(null);
     const camera = useRef(null);
