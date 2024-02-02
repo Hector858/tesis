@@ -4,7 +4,6 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
-import html2pdf from 'html2pdf.js';
 import { AxesHelper, ArrowHelper } from "three";
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
@@ -14,6 +13,8 @@ import { BiLineChart, BiSolidFilePdf, BiSolidCheckbox } from "react-icons/bi";
 import { FcScatterPlot } from "react-icons/fc";
 import { AiOutlineMenu } from "react-icons/ai";
 import { Sidebar, Menu, MenuItem } from 'react-pro-sidebar';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const Cubo = () => {
     const scene = useRef(null);
@@ -32,6 +33,39 @@ const Cubo = () => {
     const mainContainer = useRef(null);
     const [showSidebar, setShowSidebar] = useState(false);
     const [hoveredItem, setHoveredItem] = useState(null);
+     const [startTime, setStartTime] = useState(""); // Estado para la hora de inicio
+    const [endTime, setEndTime] = useState(""); 
+
+    const actualizarFiltroHora = () => {
+        // Obtener los valores de las horas seleccionadas
+        const startHour = startTime ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
+        const endHour = endTime ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
+
+        // Actualizar la visibilidad según el filtro de hora
+        cube.current.children.forEach((child) => {
+            if (child instanceof THREE.Group && child.children.length > 0) {
+                child.children.forEach((point) => {
+                    if (point.userData.isPoint && point.parent instanceof THREE.Group) {
+                        const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
+                        point.visible = pointTime >= startHour && pointTime <= endHour;
+                    }
+                });
+            } else if (child instanceof Line2 && !esLineaBorde(child)) {
+                child.visible = true; // Puedes ajustar esto según tus necesidades
+            }
+        });
+    };
+
+     const handleStartTimeChange = (event) => {
+        setStartTime(event.target.value);
+        actualizarFiltroHora();
+    };
+
+    // Método para manejar cambios en la hora de fin
+    const handleEndTimeChange = (event) => {
+        setEndTime(event.target.value);
+        actualizarFiltroHora();
+    };
 
     const handleMenuToggle = () => {
         setShowSidebar(!showSidebar);
@@ -175,14 +209,43 @@ const Cubo = () => {
     };
 
     const imprimirPDF = () => {
-        const container = document.getElementById("scene-container");
+        const sceneContainer = document.getElementById("scene-container");
 
-        html2pdf(container, {
-            margin: 10,
-            filename: 'escenario.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        // Crear un nuevo objeto jsPDF
+        const pdf = new jsPDF({
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'landscape',
+        });
+
+        // Definir el estilo del título
+        const estiloTitulo = {
+            fontSize: 16,  // Tamaño de fuente más grande
+            fontWeight: 'bold',  // Texto en negrita
+            align: 'center',  // Alineación centrada
+        };
+
+        // Agregar el título al PDF con el nuevo estilo
+        pdf.text('Gráfica de datos espacio-temporales', pdf.internal.pageSize.getWidth() / 2, 10, estiloTitulo);
+
+        // Agregar la descripción al PDF con el nombre del archivo
+        const descripcion = `A continuación, se presenta la gráfica generada por la aplicación web NOMBREDEAPP la cual se encarga de presentar en forma de cubo los datos.`;
+
+        // Ajustar el estilo de la descripción
+        pdf.setFontSize(12);  // Tamaño de fuente para la descripción
+        pdf.text(descripcion, 10, 20);
+
+        // Renderizar el contenido HTML del contenedor en una imagen usando html2canvas
+        html2canvas(sceneContainer).then((canvas) => {
+            const imgData = canvas.toDataURL('image/jpeg');
+            const imgWidth = pdf.internal.pageSize.getWidth() - 20;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            // Agregar la imagen al PDF
+            pdf.addImage(imgData, 'JPEG', 10, 30, imgWidth, imgHeight);
+
+            // Guardar el PDF con el mismo nombre y formato que especificaste
+            pdf.save('escenario.pdf');
         });
     };
 
@@ -650,38 +713,44 @@ const Cubo = () => {
                     <MenuItem icon={<AiOutlineMenu style={{ fontSize: '35px', color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }}/>}onClick={() => { handleMenuToggle();}} style={{ textAlign: "center", color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(0)}
                     onMouseLeave={() => setHoveredItem(null)}>{" "}<h2>Menú</h2></MenuItem>
                     
-                    <MenuItem style={{ color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} icon={<FcScatterPlot style={{ fontSize: '35px', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} onMouseEnter={() => setHoveredItem(1)}
+                    <MenuItem style={{ color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} icon={<FcScatterPlot style={{ fontSize: '32px', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} onMouseEnter={() => setHoveredItem(1)}
                     onMouseLeave={() => setHoveredItem(null)} defaultChecked>
                         <b>Puntos</b>
                     </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiLineChart style={{ fontSize: '35px', color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarLineas', e.target.checked)} onMouseEnter={() => setHoveredItem(2)}
+                    <MenuItem style={{ color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiLineChart style={{ fontSize: '32px', color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarLineas', e.target.checked)} onMouseEnter={() => setHoveredItem(2)}
                     onMouseLeave={() => setHoveredItem(null)} defaultChecked>
                         <b>Líneas</b>
                     </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsArrowsFullscreen style={{ fontSize: '30px', color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={toggleFullscreen} onMouseEnter={() => setHoveredItem(3)}
+                    <MenuItem style={{ color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsArrowsFullscreen style={{ fontSize: '27px', color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={toggleFullscreen} onMouseEnter={() => setHoveredItem(3)}
                     onMouseLeave={() => setHoveredItem(null)}>
                         <b>Fullscreen</b>
                     </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidCheckbox style={{ fontSize: '35px', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={resetCameraPosition} onMouseEnter={() => setHoveredItem(4)}
+                    <MenuItem style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidCheckbox style={{ fontSize: '32px', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={resetCameraPosition} onMouseEnter={() => setHoveredItem(4)}
                     onMouseLeave={() => setHoveredItem(null)}>
                         <b>Restablecer posición</b>
                     </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFiletypeJson style={{ fontSize: '30px', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'yellow' }} />} onClick={loadPointsFromJSON} onMouseEnter={() => setHoveredItem(5)}
+                    <MenuItem style={{ color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFiletypeJson style={{ fontSize: '27px', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'yellow' }} />} onClick={loadPointsFromJSON} onMouseEnter={() => setHoveredItem(5)}
                     onMouseLeave={() => setHoveredItem(null)}>
                         <b>Cargar JSON</b>
                     </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFillDashSquareFill style={{ fontSize: '30px', color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomIn} onMouseEnter={() => setHoveredItem(6)}
+                    <MenuItem style={{ color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFillDashSquareFill style={{ fontSize: '27px', color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomIn} onMouseEnter={() => setHoveredItem(6)}
                     onMouseLeave={() => setHoveredItem(null)}>
                         <b>Zoom -</b>
                     </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsPlusSquareFill style={{ fontSize: '30px', color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomOut} onMouseEnter={() => setHoveredItem(7)}
+                    <MenuItem style={{ color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsPlusSquareFill style={{ fontSize: '27px', color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomOut} onMouseEnter={() => setHoveredItem(7)}
                     onMouseLeave={() => setHoveredItem(null)}>
                         <b>Zoom +</b>
                     </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '35px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
+                    <MenuItem style={{ color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '32px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
                     onMouseLeave={() => setHoveredItem(null)}>
                         <b>Descarga Reporte</b>
                     </MenuItem>
+                    <MenuItem style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }}>
+                    <label style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }}>Hora de inicio:</label>
+                    <input type="time" value={startTime} onChange={handleStartTimeChange} /> <br />
+                    <label style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }}>Hora de fin:</label>
+                    <input type="time" value={endTime} onChange={handleEndTimeChange} />
+                </MenuItem>
                 </Menu>
             </Sidebar>
             <div id="scene-container" style={{ flex: 1 }}>
