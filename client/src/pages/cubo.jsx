@@ -40,7 +40,24 @@ const Cubo = () => {
         // Obtener los valores de las horas seleccionadas
         const startHour = startTime ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
         const endHour = endTime ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
-
+    
+        // Función para actualizar la visibilidad de los puntos
+        const updatePointVisibility = (point) => {
+            const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
+            point.visible = pointTime >= startHour && pointTime <= endHour;
+        };
+    
+        // Función para actualizar la visibilidad de las líneas
+        const updateLineVisibility = (line) => {
+            const curvePoints = line.geometry.attributes.position.array;
+            for (let i = 0; i < curvePoints.length; i += 3) {
+                const pointTime = new Date(`1970-01-01T${curvePoints[i + 2]}`).getTime();
+                const isVisible = pointTime >= startHour && pointTime <= endHour;
+                line.geometry.attributes.visible.array[i / 3] = isVisible;
+            }
+            line.geometry.attributes.visible.needsUpdate = true;
+        };
+    
         // Actualizar la visibilidad según el filtro de hora
         cube.current.children.forEach((child) => {
             if (child instanceof THREE.Group && child.children.length > 0) {
@@ -54,7 +71,25 @@ const Cubo = () => {
                 child.visible = true; // Puedes ajustar esto según tus necesidades
             }
         });
+    
+        // Actualizar la visibilidad de los puntos dentro de los caminos (paths)
+        cube.current.children.forEach((child) => {
+            if (child instanceof THREE.Group && child.children.length > 0) {
+                child.children.forEach((path) => {
+                    if (path instanceof THREE.Group && path.children.length > 0) {
+                        path.children.forEach((point) => {
+                            if (point.userData.isPoint && point.parent instanceof THREE.Group) {
+                                updatePointVisibility(point);
+                            }
+                        });
+                    } else if (path instanceof Line2 && !esLineaBorde(path)) {
+                        updateLineVisibility(path);
+                    }
+                });
+            }
+        });
     };
+    
 
      const handleStartTimeChange = (event) => {
         setStartTime(event.target.value);
@@ -745,10 +780,11 @@ const Cubo = () => {
                     onMouseLeave={() => setHoveredItem(null)}>
                         <b>Descarga Reporte</b>
                     </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }}>
-                    <label style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }}>Hora de inicio:</label>
+                    <MenuItem style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(9)}
+                    onMouseLeave={() => setHoveredItem(null)}>
+                    <label style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }} >Hora de inicio:</label>
                     <input type="time" value={startTime} onChange={handleStartTimeChange} /> <br />
-                    <label style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }}>Hora de fin:</label>
+                    <label style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }}>Hora de fin:</label>
                     <input type="time" value={endTime} onChange={handleEndTimeChange} />
                 </MenuItem>
                 </Menu>
