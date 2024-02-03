@@ -25,7 +25,6 @@ const Cubo = () => {
     const [showPoints, setShowPoints] = useState(true);
     const [showLines, setShowLines] = useState(true);
     const [fullscreen, setFullscreen] = useState(false);
-    let showLabels = true;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let labelDiv = null;
@@ -33,7 +32,7 @@ const Cubo = () => {
     const mainContainer = useRef(null);
     const [showSidebar, setShowSidebar] = useState(false);
     const [hoveredItem, setHoveredItem] = useState(null);
-     const [startTime, setStartTime] = useState(""); // Estado para la hora de inicio
+    const [startTime, setStartTime] = useState(""); // Estado para la hora de inicio
     const [endTime, setEndTime] = useState(""); 
 
     const actualizarFiltroHora = () => {
@@ -68,7 +67,7 @@ const Cubo = () => {
                     }
                 });
             } else if (child instanceof Line2 && !esLineaBorde(child)) {
-                child.visible = true; // Puedes ajustar esto según tus necesidades
+                child.visible = true;
             }
         });
     
@@ -90,7 +89,6 @@ const Cubo = () => {
         });
     };
     
-
      const handleStartTimeChange = (event) => {
         setStartTime(event.target.value);
         actualizarFiltroHora();
@@ -694,17 +692,17 @@ const Cubo = () => {
         cube.current.children.forEach((child) => {
             if (child instanceof THREE.Group && child.children.length > 0) {
                 child.children.forEach((point) => {
-                    // Verificar si es un punto en un camino y ajustar la visibilidad en consecuencia
                     if (point.userData.isPoint && point.parent instanceof THREE.Group) {
-                        point.visible = showPoints;
-                    } else {
-                        point.visible = showPoints;
+                        const startHour = startTime ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
+                        const endHour = endTime ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
+                        const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
+                        point.visible = showPoints && showPoints && pointTime >= startHour && pointTime <= endHour;
+                    }else{
+                        point.visible=showPoints;
                     }
                 });
             } else if (child instanceof Line2 && !esLineaBorde(child)) {
                 child.visible = showLines;
-            } else if (child instanceof THREE.Mesh && child.userData.isLabel) {
-                child.visible = showLabels;
             }
         });
     };
