@@ -35,10 +35,10 @@ const Cubo = () => {
     const [startTime, setStartTime] = useState(""); // Estado para la hora de inicio
     const [endTime, setEndTime] = useState(""); 
 
-    const actualizarFiltroHora = () => {
+    const actualizarFiltroHora = (newStartHour, newEndHour) => {
         // Obtener los valores de las horas seleccionadas
-        const startHour = startTime ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
-        const endHour = endTime ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
+        const startHour = newStartHour ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
+        const endHour = newEndHour ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
     
         // Función para actualizar la visibilidad de los puntos
         const updatePointVisibility = (point) => {
@@ -91,13 +91,13 @@ const Cubo = () => {
     
      const handleStartTimeChange = (event) => {
         setStartTime(event.target.value);
-        actualizarFiltroHora();
+        actualizarFiltroHora(event.target.value, endTime);
     };
 
     // Método para manejar cambios en la hora de fin
     const handleEndTimeChange = (event) => {
         setEndTime(event.target.value);
-        actualizarFiltroHora();
+        actualizarFiltroHora(event.target.value, startTime);
     };
 
     const handleMenuToggle = () => {
@@ -696,7 +696,7 @@ const Cubo = () => {
                         const startHour = startTime ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
                         const endHour = endTime ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
                         const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
-                        point.visible = showPoints && showPoints && pointTime >= startHour && pointTime <= endHour;
+                        point.visible = showPoints && pointTime >= startHour && pointTime <= endHour;
                     }else{
                         point.visible=showPoints;
                     }
@@ -718,6 +718,22 @@ const Cubo = () => {
         renderer.current.setSize(window.innerWidth, window.innerHeight);
     };
 
+    // Método para generar opciones de horas y minutos
+    const generateTimeOptions = () => {
+        const options = [];
+        for (let hour = 0; hour < 24; hour++) {
+            // Formatear la hora como cadena en formato hh
+            const formattedHour = hour.toString().padStart(2, '0');
+            const hourOption = `${formattedHour}:00`;
+            options.push(
+                <option key={hourOption} value={hourOption}>
+                    {hourOption}
+                </option>
+            );
+        }
+        return options;
+    };
+
     const animate = () => {
         requestAnimationFrame(animate);
 
@@ -736,6 +752,10 @@ const Cubo = () => {
     useEffect(() => {
         actualizarVisibilidad();
     }, [showPoints, showLines]);
+
+    useEffect(() => {
+        actualizarFiltroHora(startTime, endTime);
+    }, [startTime, endTime]);
 
     return (
         <div style={{ display: 'flex' }} ref={mainContainer}>
@@ -778,12 +798,17 @@ const Cubo = () => {
                     onMouseLeave={() => setHoveredItem(null)}>
                         <b>Descarga Reporte</b>
                     </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(9)}
-                    onMouseLeave={() => setHoveredItem(null)}>
-                    <label style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }} >Hora de inicio:</label>
-                    <input type="time" value={startTime} onChange={handleStartTimeChange} /> <br />
+                    <MenuItem style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(9)} onMouseLeave={() => setHoveredItem(null)}>
+                    <select value={startTime} onChange={handleStartTimeChange}>
+                            <option value="">--:--</option>
+                            {generateTimeOptions()}
+                    </select>
+                    <label style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }} >Hora de inicio:</label> <br />
+                    <select value={endTime} onChange={handleEndTimeChange}>
+                            <option value="">--:--</option>
+                            {generateTimeOptions()}
+                    </select>
                     <label style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }}>Hora de fin:</label>
-                    <input type="time" value={endTime} onChange={handleEndTimeChange} />
                 </MenuItem>
                 </Menu>
             </Sidebar>
