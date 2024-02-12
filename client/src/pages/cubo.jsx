@@ -9,10 +9,11 @@ import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { MeshBasicMaterial, Mesh } from "three";
 import { BsArrowsFullscreen, BsFiletypeJson, BsFillDashSquareFill, BsPlusSquareFill } from "react-icons/bs";
-import { BiLineChart, BiSolidFilePdf, BiSolidCheckbox } from "react-icons/bi";
+import { BiLineChart, BiSolidFilePdf, BiSolidCheckbox, BiSolidTimeFive } from "react-icons/bi";
 import { FcScatterPlot } from "react-icons/fc";
-import { AiOutlineMenu } from "react-icons/ai";
-import { Sidebar, Menu, MenuItem } from 'react-pro-sidebar';
+import { AiOutlineMenu, AiOutlineFundView, AiOutlineFile, AiOutlineExpand } from "react-icons/ai";
+import { WiTime1, WiTime9 } from "react-icons/wi";
+import { Sidebar, Menu, MenuItem, SubMenu } from 'react-pro-sidebar';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -32,7 +33,7 @@ const Cubo = () => {
     const mainContainer = useRef(null);
     const [showSidebar, setShowSidebar] = useState(false);
     const [hoveredItem, setHoveredItem] = useState(null);
-    const [startTime, setStartTime] = useState(""); // Estado para la hora de inicio
+    const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState(""); 
 
     const actualizarFiltroHora = (newStartHour, newEndHour) => {
@@ -91,7 +92,13 @@ const Cubo = () => {
     
      const handleStartTimeChange = (event) => {
         setStartTime(event.target.value);
-        actualizarFiltroHora(event.target.value, endTime);
+        
+        // Actualizar opciones de la hora final solo si hay una hora de inicio seleccionada
+        if (endTime !== "" && event.target.value !== "" && event.target.value >= endTime) {
+            const filteredOptions = generateTimeOptions1().filter(option => option.key > event.target.value);
+            setEndTime(filteredOptions.length > 0 ? filteredOptions[0].key : "");
+            actualizarFiltroHora(event.target.value, endTime);
+        }
     };
 
     // Método para manejar cambios en la hora de fin
@@ -378,7 +385,7 @@ const Cubo = () => {
                 ) {
                     const time = new Date(`1970-01-01T${point.z}`);
                     const normalizedZ = (time.getTime() - minZ) / zRange;
-                    const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+                    const scaledZ = normalizedZ * 30;
                     if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
                         return new THREE.Vector3(point.x, point.y, scaledZ);
                     } else {
@@ -398,7 +405,7 @@ const Cubo = () => {
             const points = curve.getPoints(180);
             const positions = points.flatMap(v => [v.x, v.y, v.z]);
             const colors = [];
-            const divisions = Math.round(100 * curvePoints.length);
+            const divisions = Math.round(12 * curvePoints.length);
             const color = new THREE.Color();
             for (let i = 0, l = divisions; i < l; i++) {
                 const t = i / l;
@@ -474,7 +481,7 @@ const Cubo = () => {
                     const positions = points.flatMap(v => [v.x, v.y, v.z]);
 
                     const colors = [];
-                    const divisions = Math.round(100 * curvePoints.length);
+                    const divisions = Math.round(12 * curvePoints.length);
                     const color = new THREE.Color();
                     for (let i = 0, l = divisions; i < l; i++) {
                         const t = i / l;
@@ -734,6 +741,25 @@ const Cubo = () => {
         return options;
     };
 
+    // Método para generar opciones de horas y minutos
+    const generateTimeOptions1 = () => {
+        const options = [];
+        for (let hour = 0; hour < 24; hour++) {
+            // Formatear la hora como cadena en formato hh
+            const formattedHour = hour.toString().padStart(2, '0');
+            const hourOption = `${formattedHour}:00`;
+            // Deshabilitar opciones mayores a la hora de inicio solo en la hora final
+            const isDisabled = (startTime !== "" && endTime === "" && hourOption <= startTime) || (endTime !== "" && hourOption <= startTime);
+
+            options.push(
+                <option key={hourOption} value={hourOption} disabled={isDisabled}>
+                    {hourOption}
+                </option>
+            );
+        }
+        return options;
+    };
+
     const animate = () => {
         requestAnimationFrame(animate);
 
@@ -759,57 +785,74 @@ const Cubo = () => {
 
     return (
         <div style={{ display: 'flex' }} ref={mainContainer}>
-            <Sidebar collapsed={!showSidebar} style={{ height: "100vh", position: 'fixed' }}backgroundColor="rgba(7,21,56,255)" ref={menuContainer}>
+            <Sidebar collapsed={!showSidebar} style={{ height: "100vh", position: 'absolute' }} backgroundColor="rgba(7,21,56,255)" ref={menuContainer}>
             
                 <Menu iconShape="square">
 
                     <MenuItem icon={<AiOutlineMenu style={{ fontSize: '35px', color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }}/>}onClick={() => { handleMenuToggle();}} style={{ textAlign: "center", color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(0)}
                     onMouseLeave={() => setHoveredItem(null)}>{" "}<h2>Menú</h2></MenuItem>
                     
-                    <MenuItem style={{ color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} icon={<FcScatterPlot style={{ fontSize: '32px', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} onMouseEnter={() => setHoveredItem(1)}
-                    onMouseLeave={() => setHoveredItem(null)} defaultChecked>
-                        <b>Puntos</b>
-                    </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiLineChart style={{ fontSize: '32px', color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarLineas', e.target.checked)} onMouseEnter={() => setHoveredItem(2)}
-                    onMouseLeave={() => setHoveredItem(null)} defaultChecked>
-                        <b>Líneas</b>
-                    </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsArrowsFullscreen style={{ fontSize: '27px', color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={toggleFullscreen} onMouseEnter={() => setHoveredItem(3)}
-                    onMouseLeave={() => setHoveredItem(null)}>
-                        <b>Fullscreen</b>
-                    </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidCheckbox style={{ fontSize: '32px', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={resetCameraPosition} onMouseEnter={() => setHoveredItem(4)}
-                    onMouseLeave={() => setHoveredItem(null)}>
-                        <b>Restablecer posición</b>
-                    </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFiletypeJson style={{ fontSize: '27px', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'yellow' }} />} onClick={loadPointsFromJSON} onMouseEnter={() => setHoveredItem(5)}
-                    onMouseLeave={() => setHoveredItem(null)}>
-                        <b>Cargar JSON</b>
-                    </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFillDashSquareFill style={{ fontSize: '27px', color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomIn} onMouseEnter={() => setHoveredItem(6)}
-                    onMouseLeave={() => setHoveredItem(null)}>
-                        <b>Zoom -</b>
-                    </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsPlusSquareFill style={{ fontSize: '27px', color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomOut} onMouseEnter={() => setHoveredItem(7)}
-                    onMouseLeave={() => setHoveredItem(null)}>
-                        <b>Zoom +</b>
-                    </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '32px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
-                    onMouseLeave={() => setHoveredItem(null)}>
-                        <b>Descarga Reporte</b>
-                    </MenuItem>
-                    <MenuItem style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(9)} onMouseLeave={() => setHoveredItem(null)}>
-                    <select value={startTime} onChange={handleStartTimeChange}>
-                            <option value="">--:--</option>
-                            {generateTimeOptions()}
-                    </select>
-                    <label style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }} >Hora de inicio:</label> <br />
-                    <select value={endTime} onChange={handleEndTimeChange}>
-                            <option value="">--:--</option>
-                            {generateTimeOptions()}
-                    </select>
-                    <label style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }}>Hora de fin:</label>
-                </MenuItem>
+                    <SubMenu label="Visualizaciones" icon={<AiOutlineFundView style={{ fontSize: '32px', color: hoveredItem === 10 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 10 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(10)} onMouseLeave={() => setHoveredItem(null)}>
+                        <MenuItem style={{ background: hoveredItem === 1 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} icon={<FcScatterPlot style={{ fontSize: '32px', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} onMouseEnter={() => setHoveredItem(1)}
+                        onMouseLeave={() => setHoveredItem(null)} defaultChecked>
+                            <b>Puntos</b>
+                        </MenuItem>
+
+                        <MenuItem style={{ background: hoveredItem === 2 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiLineChart style={{ fontSize: '32px', color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarLineas', e.target.checked)} onMouseEnter={() => setHoveredItem(2)}
+                        onMouseLeave={() => setHoveredItem(null)} defaultChecked>
+                            <b>Líneas</b>
+                        </MenuItem>
+
+                        <MenuItem style={{ background: hoveredItem === 4 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidCheckbox style={{ fontSize: '32px', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={resetCameraPosition} onMouseEnter={() => setHoveredItem(4)} onMouseLeave={() => setHoveredItem(null)}>
+                            <b>2D</b>
+                        </MenuItem> 
+                    </SubMenu>
+                    
+                    <SubMenu label="Cargar Información" icon={<AiOutlineFile style={{ fontSize: '32px', color: hoveredItem === 11 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 11 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(11)} onMouseLeave={() => setHoveredItem(null)}>
+                        <MenuItem style={{ background: hoveredItem === 5 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFiletypeJson style={{ fontSize: '27px', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'yellow' }} />} onClick={loadPointsFromJSON} onMouseEnter={() => setHoveredItem(5)} onMouseLeave={() => setHoveredItem(null)}>
+                            <b>Cargar JSON</b>
+                        </MenuItem>
+
+                        <MenuItem style={{ background: hoveredItem === 8 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '32px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
+                        onMouseLeave={() => setHoveredItem(null)}>
+                            <b>Descarga</b>
+                        </MenuItem>
+                    </SubMenu>
+
+                    <SubMenu label="Zoom" icon={<AiOutlineExpand style={{ fontSize: '32px', color: hoveredItem === 12 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 12 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(12)} onMouseLeave={() => setHoveredItem(null)}>
+
+                        <MenuItem style={{ background: hoveredItem === 3 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsArrowsFullscreen style={{ fontSize: '27px', color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={toggleFullscreen} onMouseEnter={() => setHoveredItem(3)}
+                        onMouseLeave={() => setHoveredItem(null)}>
+                            <b>Fullscreen</b>
+                        </MenuItem>
+
+                        <MenuItem style={{ background: hoveredItem === 6 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFillDashSquareFill style={{ fontSize: '27px', color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomIn} onMouseEnter={() => setHoveredItem(6)} onMouseLeave={() => setHoveredItem(null)}>
+                            <b>Zoom -</b>
+                        </MenuItem>
+
+                        <MenuItem style={{ background: hoveredItem === 7 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsPlusSquareFill style={{ fontSize: '27px', color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomOut} onMouseEnter={() => setHoveredItem(7)} onMouseLeave={() => setHoveredItem(null)}>
+                            <b>Zoom +</b>
+                        </MenuItem>
+                    </SubMenu>
+
+                    <SubMenu label="Filtro" icon={<BiSolidTimeFive style={{ fontSize: '32px', color: hoveredItem === 13 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 13 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(13)} onMouseLeave={() => setHoveredItem(null)}>
+
+                        <MenuItem style={{ background: hoveredItem === 9 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white' }} icon={<WiTime1 style={{ fontSize: '32px', color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white'}}/>} onMouseEnter={() => setHoveredItem(9)} onMouseLeave={() => setHoveredItem(null)}>
+                            <select value={startTime} onChange={handleStartTimeChange}>
+                                <option value="">--:--</option>
+                                {generateTimeOptions()}
+                            </select>
+                            <b> Inicio</b>
+                        </MenuItem>
+
+                        <MenuItem style={{ background: hoveredItem === 14 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 14 ? 'rgba(7,21,56,255)' : 'white' }} icon={<WiTime9 style={{ fontSize: '32px', color: hoveredItem === 14 ? 'rgba(7,21,56,255)' : 'white'}}/>} onMouseEnter={() => setHoveredItem(14)} onMouseLeave={() => setHoveredItem(null)}>
+                            <select value={endTime} onChange={handleEndTimeChange}>
+                                <option value="">--:--</option>
+                                {generateTimeOptions1()}
+                            </select>
+                            <b> Fin</b>
+                        </MenuItem>
+                    </SubMenu>
                 </Menu>
             </Sidebar>
             <div id="scene-container" style={{ flex: 1 }}>
