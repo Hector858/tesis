@@ -46,16 +46,61 @@ const Cubo = () => {
             const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
             point.visible = pointTime >= startHour && pointTime <= endHour;
         };
-    
-        // Función para actualizar la visibilidad de las líneas
-        const updateLineVisibility = (line) => {
-            const curvePoints = line.geometry.attributes.position.array;
-            for (let i = 0; i < curvePoints.length; i += 3) {
-                const pointTime = new Date(`1970-01-01T${curvePoints[i + 2]}`).getTime();
-                const isVisible = pointTime >= startHour && pointTime <= endHour;
-                line.geometry.attributes.visible.array[i / 3] = isVisible;
+
+        let previousLine = null;
+
+        const addLinesForVisiblePoints = (pointsData) => {
+            const visiblePoints = pointsData.filter((point) => {
+                const pointTime = new Date(`1970-01-01T${point.z}`).getTime();
+                return pointTime >= startHour && pointTime <= endHour;
+            });
+
+            const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const zRange = maxZ - minZ;
+
+            // Elimina la línea anterior si existe
+            if (previousLine) {
+                cube.current.remove(previousLine);
             }
-            line.geometry.attributes.visible.needsUpdate = true;
+    
+            if (visiblePoints.length >= 2) {
+                const curvePoints = visiblePoints.flatMap((point) => {
+                    const time = new Date(`1970-01-01T${point.z}`);
+                    const normalizedZ = (time.getTime() - minZ) / zRange;
+                    const scaledZ = normalizedZ * 30;
+                    return new THREE.Vector3(point.x, point.y, scaledZ);
+                });
+    
+                const curve = new THREE.CatmullRomCurve3(curvePoints);
+                const points = curve.getPoints(180);
+                const positions = points.flatMap(v => [v.x, v.y, v.z]);
+    
+                const colors = [];
+                const divisions = Math.round(12 * curvePoints.length);
+                const color = new THREE.Color();
+                for (let i = 0, l = divisions; i < l; i++) {
+                    const t = i / l;
+                    color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                    colors.push(color.r, color.g, color.b);
+                }
+    
+                const geometry = new LineGeometry().setPositions(positions);
+                geometry.setColors(colors);
+                const material = new LineMaterial({
+                    color: 0xffffff,
+                    linewidth: 5,
+                    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                    dashed: false,
+                    transparent: true,
+                    vertexColors: true,
+                });
+    
+                const thickLine = new Line2(geometry, material);
+                thickLine.computeLineDistances();
+                cube.current.add(thickLine);
+                previousLine = thickLine;
+            }
         };
     
         // Actualizar la visibilidad según el filtro de hora
@@ -65,10 +110,12 @@ const Cubo = () => {
                     if (point.userData.isPoint && point.parent instanceof THREE.Group) {
                         const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
                         point.visible = pointTime >= startHour && pointTime <= endHour;
+                        addLinesForVisiblePoints(child.children.map((p) => p.userData.originalValues));
                     }
                 });
             } else if (child instanceof Line2 && !esLineaBorde(child)) {
-                child.visible = true;
+                cube.current.remove(child);
+                addLinesForVisiblePoints(child.geometry.attributes.position.array);
             }
         });
     
@@ -83,7 +130,7 @@ const Cubo = () => {
                             }
                         });
                     } else if (path instanceof Line2 && !esLineaBorde(path)) {
-                        updateLineVisibility(path);
+                        path.visible=true;
                     }
                 });
             }
