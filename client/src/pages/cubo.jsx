@@ -102,6 +102,58 @@ const Cubo = () => {
                 previousLine = thickLine;
             }
         };
+
+        const addLinesForVisiblePaths = (pathsData) => {
+            pathsData.forEach((path) => {
+                // Filtra los puntos visibles
+                const visiblePoints = path.filter((point) => {
+                    const pointTime = new Date(`1970-01-01T${point.z}`).getTime();
+                    return pointTime >= startHour && pointTime <= endHour;
+                });
+        
+                // Crea una línea solo si hay puntos visibles
+                if (visiblePoints.length >= 2) {
+                    const minZ = Math.min(...path.map((point) => new Date(`1970-01-01T${point.z}`).getTime()));
+                    const maxZ = Math.max(...path.map((point) => new Date(`1970-01-01T${point.z}`).getTime()));
+                    const zRange = maxZ - minZ;
+        
+                    const curvePoints = visiblePoints.flatMap((point) => {
+                        const time = new Date(`1970-01-01T${point.z}`);
+                        const normalizedZ = (time.getTime() - minZ) / zRange;
+                        const scaledZ = normalizedZ * 30; // Ajusta esto según tu necesidad
+                        return new THREE.Vector3(point.x, point.y, scaledZ);
+                    });
+        
+                    const curve = new THREE.CatmullRomCurve3(curvePoints);
+                    const points = curve.getPoints(180);
+                    const positions = points.flatMap(v => [v.x, v.y, v.z]);
+        
+                    const colors = [];
+                    const divisions = Math.round(12 * curvePoints.length);
+                    const color = new THREE.Color();
+                    for (let i = 0, l = divisions; i < l; i++) {
+                        const t = i / l;
+                        color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                        colors.push(color.r, color.g, color.b);
+                    }
+        
+                    const geometry = new LineGeometry().setPositions(positions);
+                    geometry.setColors(colors);
+                    const material = new LineMaterial({
+                        color: 0xffffff,
+                        linewidth: 5,
+                        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                        dashed: false,
+                        transparent: true,
+                        vertexColors: true,
+                    });
+        
+                    const thickLine = new Line2(geometry, material);
+                    thickLine.computeLineDistances();
+                    cube.current.add(thickLine);
+                }
+            });
+        };
     
         // Actualizar la visibilidad según el filtro de hora
         cube.current.children.forEach((child) => {
@@ -127,10 +179,12 @@ const Cubo = () => {
                         path.children.forEach((point) => {
                             if (point.userData.isPoint && point.parent instanceof THREE.Group) {
                                 updatePointVisibility(point);
+                                addLinesForVisiblePaths([path.children.map((p) => p.userData.originalValues)]);
                             }
                         });
                     } else if (path instanceof Line2 && !esLineaBorde(path)) {
-                        path.visible=true;
+                        cube.current.remove(path);
+                        addLinesForVisiblePaths(path.geometry.attributes.position.array);
                     }
                 });
             }
