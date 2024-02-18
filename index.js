@@ -1,20 +1,17 @@
 const express = require('express');
 const path = require('path');
-const cors = require('cors');
+const app = express();
 const bodyParser = require('body-parser');
 
-const app = express();
-app.use(cors());
-
 // Configura el puerto en el que escuchará el servidor
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 // Middleware para servir archivos estáticos desde la carpeta "build" de tu aplicación React
-app.use(express.static(path.join(__dirname, 'client/dist')));
+app.use(express.static(path.join(__dirname, 'client/build')));
 
 // Ruta para servir la aplicación React
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
 });
 
 app.use(express.json());
