@@ -1,10 +1,10 @@
 {
   "Header": {
     "title": "Visualizacion de datos espacio-temporales",
-    "paragraph": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed dapibus leo nec ornare diam sed commodo nibh ante facilisis bibendum."
+    "paragraph": "Trackview es una aplicación web que se encarga de cargar y presentar datos espacio-temporales en 2D y 3D, tiene la capacidad de cargar datos de diferente ambiente siempre y cuando se siga el formato establecido."
   },
   "About": {
-    "paragraph": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+    "paragraph": "En la primera estructura... ",
     "Why": [
       "Lorem ipsum dolor",
       "Tempor incididunt",
@@ -68,33 +68,33 @@
   "Services": [
     {
       "icon": "fa fa-wordpress",
-      "name": "Lorem ipsum dolor",
-      "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed dapibus leo nec ornare diam sedasd commodo nibh ante facilisis bibendum dolor feugiat at."
+      "name": "Ir a Gráfica",
+      "text": "En el menú superior dar clic en la opción de Gráfica para dirigirse a la página para visualizar los datos."
     },
     {
       "icon": "fa fa-cart-arrow-down",
-      "name": "Consectetur adipiscing",
-      "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed dapibus leo nec ornare diam sedasd commodo nibh ante facilisis bibendum dolor feugiat at."
+      "name": "Abrir el menú",
+      "text": "En la parte izquierda abrir el menu para observar las opciónes."
     },
     {
       "icon": "fa fa-cloud-download",
-      "name": "Lorem ipsum dolor",
-      "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed dapibus leo nec ornare diam sedasd commodo nibh ante facilisis bibendum dolor feugiat at."
+      "name": "Cargar datos",
+      "text": "En la opción de Cargar Información subir el archivo JSON con el formato anteriormente mencionado"
     },
     {
       "icon": "fa fa-language",
-      "name": "Consectetur adipiscing",
-      "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed dapibus leo nec ornare diam sedasd commodo nibh ante facilisis bibendum dolor feugiat at."
+      "name": "Personalización",
+      "text": "Para mostrar/ocultar los puntos y las lineas, o ver los datos en perspectiva 2d elegir la opción de Visualizaciones"
     },
     {
       "icon": "fa fa-plane",
-      "name": "Lorem ipsum dolor",
-      "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed dapibus leo nec ornare diam sedasd commodo nibh ante facilisis bibendum dolor feugiat at."
+      "name": "Zoom",
+      "text": "En la opción de Zoom se aumente o disminuye la visualización de los datos, tambien incluye ver en pantalla completa el escenario."
     },
     {
       "icon": "fa fa-pie-chart",
-      "name": "Consectetur adipiscing",
-      "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed dapibus leo nec ornare diam sedasd commodo nibh ante facilisis bibendum dolor feugiat at."
+      "name": "Filtro",
+      "text": "Elija la hora de inicio y la hora final que desea ver los datos."
     }
   ],
   "Testimonials": [
@@ -152,23 +152,23 @@
   "Features": [
     {
       "icon": "fa fa-comments-o",
-      "title": "Lorem ipsum",
-      "text": "Lorem ipsum dolor sit amet placerat facilisis felis mi in tempus eleifend pellentesque natoque etiam."
+      "title": "Formato sencillo",
+      "text": "Se trabaja con formato JSON, el cual contiene una estructura sencilla y facil de adaptar a los datos"
     },
     {
       "icon": "fa fa-bullhorn",
-      "title": "Lorem ipsum",
-      "text": "Lorem ipsum dolor sit amet placerat facilisis felis mi in tempus eleifend pellentesque natoque etiam."
+      "title": "Visualización 2D y 3D",
+      "text": "Contiene opciónes para observar los datos desde las perspectivas 2D y 3D, mejorando el análisi de los datos. "
     },
     {
       "icon": "fa fa-group",
-      "title": "Lorem ipsum",
-      "text": "Lorem ipsum dolor sit amet placerat facilisis felis mi in tempus eleifend pellentesque natoque etiam."
+      "title": "Descarga de visualización",
+      "text": "Se genera un reporte con la visualización de los datos en tiempo real."
     },
     {
       "icon": "fa fa-magic",
-      "title": "Lorem ipsum",
-      "text": "Lorem ipsum dolor sit amet placerat facilisis felis mi in tempus eleifend pellentesque natoque etiam."
+      "title": "Personlización",
+      "text": "Incluye la personalización a gusto del usuario al momento de visualizar los datos."
     }
   ]
 }

@@ -9,10 +9,11 @@ import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { MeshBasicMaterial, Mesh } from "three";
 import { BsArrowsFullscreen, BsFiletypeJson, BsFillDashSquareFill, BsPlusSquareFill } from "react-icons/bs";
-import { BiLineChart, BiSolidFilePdf, BiSolidCheckbox } from "react-icons/bi";
+import { BiLineChart, BiSolidFilePdf, BiSolidCheckbox, BiSolidTimeFive } from "react-icons/bi";
 import { FcScatterPlot } from "react-icons/fc";
-import { AiOutlineMenu } from "react-icons/ai";
-import { Sidebar, Menu, MenuItem } from 'react-pro-sidebar';
+import { AiOutlineMenu, AiOutlineFundView, AiOutlineFile, AiOutlineExpand } from "react-icons/ai";
+import { WiTime1, WiTime9 } from "react-icons/wi";
+import { Sidebar, Menu, MenuItem, SubMenu } from 'react-pro-sidebar';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -32,13 +33,13 @@ const Cubo = () => {
     const mainContainer = useRef(null);
     const [showSidebar, setShowSidebar] = useState(false);
     const [hoveredItem, setHoveredItem] = useState(null);
-    const [startTime, setStartTime] = useState(""); // Estado para la hora de inicio
+    const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState("");
 
-    const actualizarFiltroHora = () => {
+    const actualizarFiltroHora = (newStartHour, newEndHour) => {
         // Obtener los valores de las horas seleccionadas
-        const startHour = startTime ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
-        const endHour = endTime ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
+        const startHour = newStartHour ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
+        const endHour = newEndHour ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
 
         // Función para actualizar la visibilidad de los puntos
         const updatePointVisibility = (point) => {
@@ -46,15 +47,123 @@ const Cubo = () => {
             point.visible = pointTime >= startHour && pointTime <= endHour;
         };
 
-        // Función para actualizar la visibilidad de las líneas
-        const updateLineVisibility = (line) => {
-            const curvePoints = line.geometry.attributes.position.array;
-            for (let i = 0; i < curvePoints.length; i += 3) {
-                const pointTime = new Date(`1970-01-01T${curvePoints[i + 2]}`).getTime();
-                const isVisible = pointTime >= startHour && pointTime <= endHour;
-                line.geometry.attributes.visible.array[i / 3] = isVisible;
+        let previousLine = null;
+
+        const addLinesForVisiblePoints = (pointsData) => {
+            const visiblePoints = pointsData.filter((point) => {
+                const pointTime = new Date(`1970-01-01T${point.z}`).getTime();
+                return pointTime >= startHour && pointTime <= endHour;
+            });
+
+            const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            const zRange = maxZ - minZ;
+
+            // Elimina la línea anterior si existe
+            if (previousLine) {
+                cube.current.remove(previousLine);
             }
-            line.geometry.attributes.visible.needsUpdate = true;
+
+            if (visiblePoints.length >= 2) {
+                const curvePoints = visiblePoints.map((point) => {
+                    const time = new Date(`1970-01-01T${point.z}`);
+                    const normalizedZ = (time.getTime() - minZ) / zRange;
+                    const scaledZ = normalizedZ * 30;
+                    return new THREE.Vector3(point.x, point.y, scaledZ);
+                });
+
+                const curve = new THREE.CatmullRomCurve3(curvePoints);
+                const points = curve.getPoints(180);
+                const positions = points.flatMap(v => [v.x, v.y, v.z]);
+
+                const colors = [];
+                const divisions = Math.round(12 * curvePoints.length);
+                const color = new THREE.Color();
+                for (let i = 0, l = divisions; i < l; i++) {
+                    const t = i / l;
+                    color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                    colors.push(color.r, color.g, color.b);
+                }
+
+                const geometry = new LineGeometry().setPositions(positions);
+                geometry.setColors(colors);
+                const material = new LineMaterial({
+                    color: 0xffffff,
+                    linewidth: 5,
+                    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                    dashed: false,
+                    transparent: true,
+                    vertexColors: true,
+                });
+
+                const thickLine = new Line2(geometry, material);
+                thickLine.computeLineDistances();
+                cube.current.add(thickLine);
+                previousLine = thickLine;
+            }
+        };
+
+
+
+        const addLinesForVisiblePaths = (pathsData) => {
+            pathsData.forEach((path) => {
+                const visiblePoints = path.filter((point) => {
+                    const pointTime = new Date(`1970-01-01T${point.z}`).getTime();
+                    return pointTime >= startHour && pointTime <= endHour;
+                });
+
+                //console.log(visiblePoints);
+
+                if (visiblePoints.length >= 2) {
+
+                    let minZ = Infinity;
+                    let maxZ = -Infinity;
+
+                    path.forEach((point) => {
+                        // Convertir la cadena de tiempo a milisegundos
+                        const time = new Date(`1970-01-01T${point.z}`).getTime();
+                        minZ = Math.min(minZ, time);
+                        maxZ = Math.max(maxZ, time);
+                    });
+
+                    const curvePoints = visiblePoints.map((point) => {
+                        const time = new Date(`1970-01-01T${point.z}`).getTime();
+                        const zRange = maxZ - minZ;
+                        const normalizedZ = (time - minZ) / zRange;
+                        const scaledZ = normalizedZ * 30;
+                        return new THREE.Vector3(point.x, point.y, scaledZ);
+                    });
+
+                    console.log(curvePoints);
+
+                    const curve = new THREE.CatmullRomCurve3(curvePoints);
+                    const points = curve.getPoints(180);
+                    const positions = points.flatMap(v => [v.x, v.y, v.z]);
+
+                    const colors = [];
+                    const divisions = Math.round(12 * curvePoints.length);
+                    const color = new THREE.Color();
+                    for (let i = 0, l = divisions; i < l; i++) {
+                        const t = i / l;
+                        color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                        colors.push(color.r, color.g, color.b);
+                    }
+
+                    const geometry = new LineGeometry().setPositions(positions);
+                    geometry.setColors(colors);
+                    const material = new LineMaterial({
+                        color: 0xffffff,
+                        linewidth: 5,
+                        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                        dashed: false,
+                        transparent: true,
+                        vertexColors: true,
+                    });
+
+                    const thickLine = new Line2(geometry, material);
+                    cube.current.add(thickLine);
+                }
+            });
         };
 
         // Actualizar la visibilidad según el filtro de hora
@@ -64,10 +173,12 @@ const Cubo = () => {
                     if (point.userData.isPoint && point.parent instanceof THREE.Group) {
                         const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
                         point.visible = pointTime >= startHour && pointTime <= endHour;
+                        addLinesForVisiblePoints(child.children.map((p) => p.userData.originalValues));
                     }
                 });
             } else if (child instanceof Line2 && !esLineaBorde(child)) {
-                child.visible = true;
+                cube.current.remove(child);
+                addLinesForVisiblePoints(child.geometry.attributes.position.array);
             }
         });
 
@@ -81,8 +192,10 @@ const Cubo = () => {
                                 updatePointVisibility(point);
                             }
                         });
+                        addLinesForVisiblePaths([path.children.map((p) => p.userData.originalValues)]);
                     } else if (path instanceof Line2 && !esLineaBorde(path)) {
-                        updateLineVisibility(path);
+                        cube.current.remove([path]);
+                        addLinesForVisiblePaths([path.geometry.attributes.position.array]);
                     }
                 });
             }
@@ -91,13 +204,19 @@ const Cubo = () => {
 
     const handleStartTimeChange = (event) => {
         setStartTime(event.target.value);
-        actualizarFiltroHora();
+
+        // Actualizar opciones de la hora final solo si hay una hora de inicio seleccionada
+        if (endTime !== "" && event.target.value !== "" && event.target.value >= endTime) {
+            const filteredOptions = generateTimeOptions1().filter(option => option.key > event.target.value);
+            setEndTime(filteredOptions.length > 0 ? filteredOptions[0].key : "");
+        }
+        actualizarFiltroHora(event.target.value, endTime);
     };
 
     // Método para manejar cambios en la hora de fin
     const handleEndTimeChange = (event) => {
         setEndTime(event.target.value);
-        actualizarFiltroHora();
+        actualizarFiltroHora(event.target.value, startTime);
     };
 
     const handleMenuToggle = () => {
@@ -397,7 +516,7 @@ const Cubo = () => {
                 ) {
                     const time = new Date(`1970-01-01T${point.z}`);
                     const normalizedZ = (time.getTime() - minZ) / zRange;
-                    const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+                    const scaledZ = normalizedZ * 30;
                     if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
                         return new THREE.Vector3(point.x, point.y, scaledZ);
                     } else {
@@ -417,7 +536,7 @@ const Cubo = () => {
             const points = curve.getPoints(180);
             const positions = points.flatMap(v => [v.x, v.y, v.z]);
             const colors = [];
-            const divisions = Math.round(100 * curvePoints.length);
+            const divisions = Math.round(12 * curvePoints.length);
             const color = new THREE.Color();
             for (let i = 0, l = divisions; i < l; i++) {
                 const t = i / l;
@@ -440,94 +559,98 @@ const Cubo = () => {
                 cube.current.add(thickLine);
             }
         } else if ('paths' in data) {
-            // Para múltiples caminos con la propiedad "paths"
-            if (!Array.isArray(data.paths) || data.paths.length === 0) {
-                console.warn('Invalid JSON format: "paths" array is missing or empty.');
-                return;
-            }
+            let allPathsInsideCube = true;
             let minZ = Infinity;
             let maxZ = -Infinity;
-            let allPathsInsideCube = true;
+
+            // Calcular la hora más baja y la hora más alta para todos los puntos
             data.paths.forEach((path) => {
                 const pointsData = path.points;
-                if (!Array.isArray(pointsData) || pointsData.length < 2) {
-                    console.warn('Invalid path format: "points" array is missing or has insufficient points.');
-                    return;
-                }
-                // Calcular la hora más baja y la hora más alta para todos los puntos
-                const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-                const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-                minZ = Math.min(minZ, pathMinZ);
-                maxZ = Math.max(maxZ, pathMaxZ);
-                let allPointsInsidePath = true;
-                const curvePoints = pointsData.flatMap((point) => {
-                    if (
-                        typeof point.x === 'number' &&
-                        typeof point.y === 'number' &&
-                        typeof point.z === 'string'
-                    ) {
+                pointsData.forEach((point) => {
+                    if (typeof point.z === 'string') {
                         const time = new Date(`1970-01-01T${point.z}`);
-                        const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
-
-                        const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
-
-                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
-                            return new THREE.Vector3(point.x, point.y, scaledZ);
+                        if (!isNaN(time.getTime())) {
+                            minZ = Math.min(minZ, time.getTime());
+                            maxZ = Math.max(maxZ, time.getTime());
                         } else {
-                            allPointsInsidePath = false;
-                            return [];
+                            allPathsInsideCube = false;
                         }
                     } else {
-                        console.warn('Invalid point coordinates:', point);
-                        return [];
+                        allPathsInsideCube = false;
                     }
                 });
-
-                if (curvePoints.length < 2) {
-                    console.warn('Not enough valid points to create lines.');
-                    return;
-                }
-                if (curvePoints.length >= 3 && allPointsInsidePath) {
-                    const curve = new THREE.CatmullRomCurve3(curvePoints);
-                    const points = curve.getPoints(180);
-                    const positions = points.flatMap(v => [v.x, v.y, v.z]);
-
-                    const colors = [];
-                    const divisions = Math.round(100 * curvePoints.length);
-                    const color = new THREE.Color();
-                    for (let i = 0, l = divisions; i < l; i++) {
-                        const t = i / l;
-                        color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
-                        colors.push(color.r, color.g, color.b);
-                    }
-                    const geometry = new LineGeometry().setPositions(positions);
-                    geometry.setColors(colors);
-                    const material = new LineMaterial({
-                        color: 0xffffff,
-                        linewidth: 5,
-                        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
-                        dashed: false,
-                        transparent: true,
-                        vertexColors: true,
-                    });
-                    const thickLine = new Line2(geometry, material);
-                    thickLine.computeLineDistances();
-
-                    cube.current.add(thickLine);
-                } else {
-                    allPathsInsideCube = false;
-                }
             });
-            if (!allPathsInsideCube) {
-                // Limpia las líneas existentes antes de agregar nuevas
-                cube.current.children.slice().forEach((child) => {
-                    if (child instanceof Line2) {
-                        cube.current.remove(child);
+
+            if (allPathsInsideCube) {
+                const zRange = maxZ - minZ;
+
+
+                data.paths.forEach((path) => {
+                    const pointsData = path.points;
+                    let allPointsInsidePath = true;
+                    const curvePoints = pointsData.flatMap((point) => {
+                        if (typeof point.x === 'number' && typeof point.y === 'number' && typeof point.z === 'string') {
+                            const time = new Date(`1970-01-01T${point.z}`);
+                            const normalizedZ = (time.getTime() - minZ) / zRange;
+                            const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+
+                            if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                                return new THREE.Vector3(point.x, point.y, scaledZ);
+                            } else {
+                                allPointsInsidePath = false;
+                                return [];
+                            }
+                        } else {
+                            alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
+                            return [];
+                        }
+                    });
+
+                    if (curvePoints.length >= 3 && allPointsInsidePath) {
+                        const curve = new THREE.CatmullRomCurve3(curvePoints);
+                        const points = curve.getPoints(180);
+                        const positions = points.flatMap(v => [v.x, v.y, v.z]);
+
+                        const colors = [];
+                        const divisions = Math.round(12 * curvePoints.length);
+                        const color = new THREE.Color();
+                        for (let i = 0, l = divisions; i < l; i++) {
+                            const t = i / l;
+                            color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                            colors.push(color.r, color.g, color.b);
+                        }
+
+                        const geometry = new LineGeometry().setPositions(positions);
+                        geometry.setColors(colors);
+
+                        const material = new LineMaterial({
+                            color: 0xffffff,
+                            linewidth: 5,
+                            resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                            dashed: false,
+                            transparent: true,
+                            vertexColors: true,
+                        });
+
+                        const thickLine = new Line2(geometry, material);
+                        thickLine.computeLineDistances();
+
+                        cube.current.add(thickLine);
+                    } else {
+                        allPathsInsideCube = false;
                     }
                 });
+                if (!allPathsInsideCube) {
+                    // Limpia las líneas existentes antes de agregar nuevas
+                    cube.current.children.slice().forEach((child) => {
+                        if (child instanceof Line2) {
+                            cube.current.remove(child);
+                        }
+                    });
+                }
+            } else {
+                alert("¡Advertencia! Al menos uno de los caminos contiene información incorrecta.");
             }
-        } else {
-            console.warn('Invalid JSON format: "points" or "paths" property is missing.');
         }
     };
 
@@ -637,72 +760,76 @@ const Cubo = () => {
                 cube.current.add(spheres);
             }
         } else if ('paths' in data) {
+            let allPathsInsideCube = true;
             let minZ = Infinity;
             let maxZ = -Infinity;
-            let allPathsInsideCube = true;
-            // Para múltiples caminos con la propiedad "paths"
-            if (!Array.isArray(data.paths) || data.paths.length === 0) {
-                console.warn('Invalid JSON format: "paths" array is missing or empty.');
-                return;
-            }
-            const pathsGroup = new THREE.Group();
+
+            // Calcular la hora más baja y la hora más alta para todos los puntos
             data.paths.forEach((path) => {
                 const pointsData = path.points;
-                if (!Array.isArray(pointsData) || pointsData.length === 0) {
-                    console.warn('Invalid path format: "points" array is missing or empty.');
-                    return;
-                }
-                let allPointsInsidePath = true;
-                // Calcular la hora más baja y la hora más alta para todos los puntos
-                const pathMinZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-                const pathMaxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-                minZ = Math.min(minZ, pathMinZ);
-                maxZ = Math.max(maxZ, pathMaxZ);
-                const spheres = new THREE.Group();
                 pointsData.forEach((point) => {
-                    if (
-                        typeof point.x === 'number' &&
-                        typeof point.y === 'number' &&
-                        typeof point.z === 'string'
-                    ) {
+                    if (typeof point.z === 'string') {
                         const time = new Date(`1970-01-01T${point.z}`);
-                        if (isNaN(time.getTime())) {
-                            alert("¡Advertencia! El formato de hora en al menos uno de los puntos no es válido.");
-                            return;
-                        }
-                        const normalizedZ = (time.getTime() - minZ) / (maxZ - minZ);
-                        const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
-                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
-                            const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-                            const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
-                            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-                            // Almacenar los valores originales en userData
-                            sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
-                            sphere.position.set(point.x, point.y, scaledZ);
-                            sphere.userData.isPoint = true;
-                            spheres.add(sphere);
+                        if (!isNaN(time.getTime())) {
+                            minZ = Math.min(minZ, time.getTime());
+                            maxZ = Math.max(maxZ, time.getTime());
                         } else {
-                            allPointsInsidePath = false;
+                            alert(`¡Advertencia! El formato de hora en al menos uno de los puntos no es válido: ${point.z}`);
+                            allPathsInsideCube = false;
                         }
                     } else {
                         alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
-                        allPointsInsidePath = false;
+                        allPathsInsideCube = false;
+                    }
+                });
+            });
+
+            if (allPathsInsideCube) {
+                const zRange = maxZ - minZ;
+
+                const pathsGroup = new THREE.Group();
+                data.paths.forEach((path) => {
+                    const pointsData = path.points;
+                    const spheres = new THREE.Group();
+                    let allPointsInsidePath = true;
+                    pointsData.forEach((point) => {
+                        if (typeof point.x === 'number' && typeof point.y === 'number' && typeof point.z === 'string') {
+                            const time = new Date(`1970-01-01T${point.z}`);
+                            const normalizedZ = (time.getTime() - minZ) / zRange;
+                            const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+
+                            if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                                const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                                const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+                                const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                                // Almacenar los valores originales en userData
+                                sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
+                                sphere.position.set(point.x, point.y, scaledZ);
+                                sphere.userData.isPoint = true;
+                                spheres.add(sphere);
+                            } else {
+                                alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
+                                allPointsInsidePath = false;
+                            }
+                        }
+                    });
+
+                    if (allPointsInsidePath) {
+                        pathsGroup.add(spheres);
+                    } else {
+                        allPathsInsideCube = false;
                     }
                 });
 
-                if (allPointsInsidePath) {
-                    pathsGroup.add(spheres);
+                if (allPathsInsideCube) {
+                    cube.current.add(pathsGroup);
                 } else {
-                    allPathsInsideCube = false;
+                    alert("¡Advertencia! Al menos uno de los caminos contiene puntos fuera del cubo.");
                 }
-            });
-            if (allPathsInsideCube) {
-                cube.current.add(pathsGroup);
             } else {
-                alert("¡Advertencia! Al menos uno de los caminos contiene puntos fuera del cubo.");
+                alert("¡Advertencia! Al menos uno de los puntos contiene información incorrecta.");
             }
         } else {
-            console.warn('Invalid JSON format: "points" or "paths" property is missing.');
             alert("Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.");
         }
     };
@@ -715,7 +842,7 @@ const Cubo = () => {
                         const startHour = startTime ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
                         const endHour = endTime ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
                         const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
-                        point.visible = showPoints && showPoints && pointTime >= startHour && pointTime <= endHour;
+                        point.visible = showPoints && pointTime >= startHour && pointTime <= endHour;
                     } else {
                         point.visible = showPoints;
                     }
@@ -737,6 +864,41 @@ const Cubo = () => {
         renderer.current.setSize(window.innerWidth, window.innerHeight);
     };
 
+    // Método para generar opciones de horas y minutos
+    const generateTimeOptions = () => {
+        const options = [];
+        for (let hour = 0; hour < 24; hour++) {
+            // Formatear la hora como cadena en formato hh
+            const formattedHour = hour.toString().padStart(2, '0');
+            const hourOption = `${formattedHour}:00`;
+            options.push(
+                <option key={hourOption} value={hourOption}>
+                    {hourOption}
+                </option>
+            );
+        }
+        return options;
+    };
+
+    // Método para generar opciones de horas y minutos
+    const generateTimeOptions1 = () => {
+        const options = [];
+        for (let hour = 0; hour < 24; hour++) {
+            // Formatear la hora como cadena en formato hh
+            const formattedHour = hour.toString().padStart(2, '0');
+            const hourOption = `${formattedHour}:00`;
+            // Deshabilitar opciones mayores a la hora de inicio solo en la hora final
+            const isDisabled = (startTime !== "" && endTime === "" && hourOption <= startTime) || (endTime !== "" && hourOption <= startTime);
+
+            options.push(
+                <option key={hourOption} value={hourOption} disabled={isDisabled}>
+                    {hourOption}
+                </option>
+            );
+        }
+        return options;
+    };
+
     const animate = () => {
         requestAnimationFrame(animate);
 
@@ -756,58 +918,84 @@ const Cubo = () => {
         actualizarVisibilidad();
     }, [showPoints, showLines]);
 
+    useEffect(() => {
+        actualizarFiltroHora(startTime, endTime);
+    }, [startTime, endTime]);
+
     return (
         <div>
             <hr></hr>
             <hr></hr>
             <hr></hr>
             <div style={{ display: 'flex' }} ref={mainContainer}>
-                <Sidebar collapsed={!showSidebar} style={{ height: "100vh", position: 'fixed' }} backgroundColor="rgba(7,21,56,255)" ref={menuContainer}>
+                <Sidebar collapsed={!showSidebar} style={{ height: "100vh", position: 'absolute' }} backgroundColor="rgba(7,21,56,255)" ref={menuContainer}>
 
                     <Menu iconShape="square">
 
                         <MenuItem icon={<AiOutlineMenu style={{ fontSize: '35px', color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={() => { handleMenuToggle(); }} style={{ textAlign: "center", color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(0)}
                             onMouseLeave={() => setHoveredItem(null)}>{" "}<h2>Menú</h2></MenuItem>
 
-                        <MenuItem style={{ color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} icon={<FcScatterPlot style={{ fontSize: '32px', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} onMouseEnter={() => setHoveredItem(1)}
-                            onMouseLeave={() => setHoveredItem(null)} defaultChecked>
-                            <b>Puntos</b>
-                        </MenuItem>
-                        <MenuItem style={{ color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiLineChart style={{ fontSize: '32px', color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarLineas', e.target.checked)} onMouseEnter={() => setHoveredItem(2)}
-                            onMouseLeave={() => setHoveredItem(null)} defaultChecked>
-                            <b>Líneas</b>
-                        </MenuItem>
-                        <MenuItem style={{ color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsArrowsFullscreen style={{ fontSize: '27px', color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={toggleFullscreen} onMouseEnter={() => setHoveredItem(3)}
-                            onMouseLeave={() => setHoveredItem(null)}>
-                            <b>Fullscreen</b>
-                        </MenuItem>
-                        <MenuItem style={{ color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidCheckbox style={{ fontSize: '32px', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={resetCameraPosition} onMouseEnter={() => setHoveredItem(4)}
-                            onMouseLeave={() => setHoveredItem(null)}>
-                            <b>Restablecer posición</b>
-                        </MenuItem>
-                        <MenuItem style={{ color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFiletypeJson style={{ fontSize: '27px', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'yellow' }} />} onClick={loadPointsFromJSON} onMouseEnter={() => setHoveredItem(5)}
-                            onMouseLeave={() => setHoveredItem(null)}>
-                            <b>Cargar JSON</b>
-                        </MenuItem>
-                        <MenuItem style={{ color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFillDashSquareFill style={{ fontSize: '27px', color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomIn} onMouseEnter={() => setHoveredItem(6)}
-                            onMouseLeave={() => setHoveredItem(null)}>
-                            <b>Zoom -</b>
-                        </MenuItem>
-                        <MenuItem style={{ color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsPlusSquareFill style={{ fontSize: '27px', color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomOut} onMouseEnter={() => setHoveredItem(7)}
-                            onMouseLeave={() => setHoveredItem(null)}>
-                            <b>Zoom +</b>
-                        </MenuItem>
-                        <MenuItem style={{ color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '32px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
-                            onMouseLeave={() => setHoveredItem(null)}>
-                            <b>Descarga Reporte</b>
-                        </MenuItem>
-                        <MenuItem style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(9)}
-                            onMouseLeave={() => setHoveredItem(null)}>
-                            <label style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }} >Hora de inicio:</label>
-                            <input type="time" value={startTime} onChange={handleStartTimeChange} /> <br />
-                            <label style={{ color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white', fontSize: '16px' }}>Hora de fin:</label>
-                            <input type="time" value={endTime} onChange={handleEndTimeChange} />
-                        </MenuItem>
+                        <SubMenu label="Visualizaciones" icon={<AiOutlineFundView style={{ fontSize: '32px', color: hoveredItem === 10 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 10 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(10)} onMouseLeave={() => setHoveredItem(null)}>
+                            <MenuItem style={{ background: hoveredItem === 1 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} icon={<FcScatterPlot style={{ fontSize: '32px', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} onMouseEnter={() => setHoveredItem(1)}
+                                onMouseLeave={() => setHoveredItem(null)} defaultChecked>
+                                <b>Puntos</b>
+                            </MenuItem>
+
+                            <MenuItem style={{ background: hoveredItem === 2 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiLineChart style={{ fontSize: '32px', color: hoveredItem === 2 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarLineas', e.target.checked)} onMouseEnter={() => setHoveredItem(2)}
+                                onMouseLeave={() => setHoveredItem(null)} defaultChecked>
+                                <b>Líneas</b>
+                            </MenuItem>
+
+                            <MenuItem style={{ background: hoveredItem === 4 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidCheckbox style={{ fontSize: '32px', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={resetCameraPosition} onMouseEnter={() => setHoveredItem(4)} onMouseLeave={() => setHoveredItem(null)}>
+                                <b>2D</b>
+                            </MenuItem>
+                        </SubMenu>
+
+                        <SubMenu label="Cargar Información" icon={<AiOutlineFile style={{ fontSize: '32px', color: hoveredItem === 11 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 11 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(11)} onMouseLeave={() => setHoveredItem(null)}>
+                            <MenuItem style={{ background: hoveredItem === 5 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFiletypeJson style={{ fontSize: '27px', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'yellow' }} />} onClick={loadPointsFromJSON} onMouseEnter={() => setHoveredItem(5)} onMouseLeave={() => setHoveredItem(null)}>
+                                <b>Cargar JSON</b>
+                            </MenuItem>
+
+                            <MenuItem style={{ background: hoveredItem === 8 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '32px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
+                                onMouseLeave={() => setHoveredItem(null)}>
+                                <b>Descarga</b>
+                            </MenuItem>
+                        </SubMenu>
+
+                        <SubMenu label="Zoom" icon={<AiOutlineExpand style={{ fontSize: '32px', color: hoveredItem === 12 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 12 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(12)} onMouseLeave={() => setHoveredItem(null)}>
+
+                            <MenuItem style={{ background: hoveredItem === 3 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsArrowsFullscreen style={{ fontSize: '27px', color: hoveredItem === 3 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={toggleFullscreen} onMouseEnter={() => setHoveredItem(3)}
+                                onMouseLeave={() => setHoveredItem(null)}>
+                                <b>Fullscreen</b>
+                            </MenuItem>
+
+                            <MenuItem style={{ background: hoveredItem === 6 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFillDashSquareFill style={{ fontSize: '27px', color: hoveredItem === 6 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomIn} onMouseEnter={() => setHoveredItem(6)} onMouseLeave={() => setHoveredItem(null)}>
+                                <b>Zoom -</b>
+                            </MenuItem>
+
+                            <MenuItem style={{ background: hoveredItem === 7 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsPlusSquareFill style={{ fontSize: '27px', color: hoveredItem === 7 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={zoomOut} onMouseEnter={() => setHoveredItem(7)} onMouseLeave={() => setHoveredItem(null)}>
+                                <b>Zoom +</b>
+                            </MenuItem>
+                        </SubMenu>
+
+                        <SubMenu label="Filtro" icon={<BiSolidTimeFive style={{ fontSize: '32px', color: hoveredItem === 13 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 13 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(13)} onMouseLeave={() => setHoveredItem(null)}>
+
+                            <MenuItem style={{ background: hoveredItem === 9 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white' }} icon={<WiTime1 style={{ fontSize: '32px', color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white' }} />} onMouseEnter={() => setHoveredItem(9)} onMouseLeave={() => setHoveredItem(null)}>
+                                <select value={startTime} onChange={handleStartTimeChange} style={{ color: 'black' }} >
+                                    <option value="">--:--</option>
+                                    {generateTimeOptions()}
+                                </select>
+                                <b> Inicio</b>
+                            </MenuItem>
+
+                            <MenuItem style={{ background: hoveredItem === 14 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 14 ? 'rgba(7,21,56,255)' : 'white' }} icon={<WiTime9 style={{ fontSize: '32px', color: hoveredItem === 14 ? 'rgba(7,21,56,255)' : 'white' }} />} onMouseEnter={() => setHoveredItem(14)} onMouseLeave={() => setHoveredItem(null)}>
+                                <select value={endTime} onChange={handleEndTimeChange} style={{ color: 'black' }}>
+                                    <option value="">--:--</option>
+                                    {generateTimeOptions1()}
+                                </select>
+                                <b> Fin</b>
+                            </MenuItem>
+                        </SubMenu>
                     </Menu>
                 </Sidebar>
                 <div id="scene-container" style={{ flex: 1 }}>
