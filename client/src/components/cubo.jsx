@@ -53,80 +53,6 @@ const Cubo = () => {
             point.visible = pointTime >= startHour && pointTime <= endHour;
         };
 
-        let previousLine = null;
-        /*
-        método de un solo camino pero el con el formato:
-        {
-            "points":[{x: numero}, {y:numero}, {z: "00:00:00"}]
-        }
-        */
-        const addLinesForVisiblePoints = (pointsData) => {
-            //filtra y obtiene el array de los puntos visibles
-            const visiblePoints = pointsData.filter((point) => {
-                const pointTime = new Date(`1970-01-01T${point.z}`).getTime();
-                return pointTime >= startHour && pointTime <= endHour;
-            });
-            //obtiene los maximo punto y el minimo punto que debe de haber en el cubo
-            const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-            const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-            //rango
-            const zRange = maxZ - minZ;
-
-            // Elimina la línea anterior si existe
-            if (previousLine) {
-                cube.current.remove(previousLine);
-            }
-            //si existe mas de un punto crea la linea
-            if (visiblePoints.length >= 2) {
-                //recorre la colección de arreglos de los puntos visibles
-                const curvePoints = visiblePoints.map((point) => {
-                    //obtiene la hora del punto z
-                    const time = new Date(`1970-01-01T${point.z}`);
-                    //normaliza su valor para que este entre 0 y 1
-                    const normalizedZ = (time.getTime() - minZ) / zRange;
-                    //lo adapta al tamaño del cubo q es 30
-                    const scaledZ = normalizedZ * 30;
-                    //retorna el vector con los valores de los puntos
-                    return new THREE.Vector3(point.x, point.y, scaledZ);
-                });
-                //crea la curva
-                const curve = new THREE.CatmullRomCurve3(curvePoints);
-                //valor de la curva
-                const points = curve.getPoints(180);
-                //vectores de las posiciones
-                const positions = points.flatMap(v => [v.x, v.y, v.z]);
-    
-                //crea los colors
-                const colors = [];
-                const divisions = Math.round(12 * curvePoints.length);
-                const color = new THREE.Color();
-                for (let i = 0, l = divisions; i < l; i++) {
-                    const t = i / l;
-                    color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
-                    colors.push(color.r, color.g, color.b);
-                }
-                //une las posiciones y colores de la linea
-                const geometry = new LineGeometry().setPositions(positions);
-                geometry.setColors(colors);
-                //crea el material de la linea
-                const material = new LineMaterial({
-                    color: 0xffffff,
-                    linewidth: 5,
-                    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    dashed: false,
-                    transparent: true,
-                    vertexColors: true,
-                });
-                //crea la linea
-                const thickLine = new Line2(geometry, material);
-                thickLine.computeLineDistances();
-                //agrega la linea
-                cube.current.add(thickLine);
-                //se convierte en la nueva linea previa en cao de que e aplique de nuevo el filtro
-                previousLine = thickLine;
-            }
-        };
-
         /*
         método de 2 o más caminos camino pero el con el formato:
         {
@@ -173,8 +99,6 @@ const addLinesForVisiblePaths = (pathsData) => {
             return pointTime >= startHour && pointTime <= endHour;
         });
 
-        console.log(path.length);
-
         // Cuando haya 2 o más puntos se crea la línea
         if (visiblePoints.length >= 2) {
             const zRange = maxZ - minZ;
@@ -194,12 +118,11 @@ const addLinesForVisiblePaths = (pathsData) => {
 
             // Crea los colores
             const colors = [];
-            const divisions = Math.round(12 * curvePoints.length);
-            const color = new THREE.Color();
+            const divisions = Math.round(100 * curvePoints.length);
+  
+            const lineColor = generateRandomColor();
             for (let i = 0, l = divisions; i < l; i++) {
-                const t = i / l;
-                color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
-                colors.push(color.r, color.g, color.b);
+              colors.push(lineColor.r, lineColor.g, lineColor.b);
             }
 
             // Une las posiciones y colores de la línea
@@ -231,13 +154,7 @@ const existingLines = [];
         cube.current.children.forEach((child) => {
             if (child instanceof THREE.Group && child.children.length > 0) {
                 child.children.forEach((path) => {
-                    if (path.userData.isPoint && path.parent instanceof THREE.Group) {
-                        const pointTime = new Date(`1970-01-01T${path.userData.originalValues.z}`).getTime();
-                        path.visible = pointTime >= startHour && pointTime <= endHour;
-                        //agrega la linea correspondientes a los puntos visibles
-                        addLinesForVisiblePoints(child.children.map((p) => p.userData.originalValues));
-                    }
-                    else if (path instanceof THREE.Group && path.children.length > 0) {
+                     if (path instanceof THREE.Group && path.children.length > 0) {
                         path.children.forEach((point) => {
                             if (point.userData.isPoint && point.parent instanceof THREE.Group) {
                                 //agrega los puntos visibles
@@ -250,7 +167,6 @@ const existingLines = [];
                     }
                 });
             }else if (child instanceof Line2 && !esLineaBorde(child)) {
-                addLinesForVisiblePoints(child.geometry.attributes.position.array);
                 // Guarda la referencia de las líneas existentes
                 existingLines.push(child);
             }
@@ -424,22 +340,30 @@ const existingLines = [];
             orientation: 'landscape',
         });
 
+        // Agregar tu imagen como símbolo en la parte superior izquierda
+        const imgPath = 'https://i.postimg.cc/63w0wyQC/TRACKVIEW.png'; // Reemplaza esto con la ruta de tu imagen
+        pdf.addImage(imgPath, 'PNG', 10, 10, 30, 30);
+
         // Definir el estilo del título
         const estiloTitulo = {
-            fontSize: 16,  // Tamaño de fuente más grande
+            fontSize: 20,  // Tamaño de fuente más grande
             fontWeight: 'bold',  // Texto en negrita
             align: 'center',  // Alineación centrada
+            color: 'darkblue',
         };
 
         // Agregar el título al PDF con el nuevo estilo
-        pdf.text('Gráfica de datos espacio-temporales', pdf.internal.pageSize.getWidth() / 2, 10, estiloTitulo);
+        pdf.text('Gráfica de Datos Espacio-Temporales', pdf.internal.pageSize.getWidth() / 2, 10, estiloTitulo);
 
         // Agregar la descripción al PDF con el nombre del archivo
-        const descripcion = `A continuación, se presenta la gráfica generada por la aplicación web NOMBREDEAPP la cual se encarga de presentar en forma de cubo los datos.`;
+        const descripcion = `A continuación, se presenta la gráfica generada por la aplicación web TRACKVIEW la cual se encarga de presentar dentro de un cubo los datos espacio-temporales.`;
 
         // Ajustar el estilo de la descripción
-        pdf.setFontSize(12);  // Tamaño de fuente para la descripción
-        pdf.text(descripcion, 10, 20);
+        pdf.setFontSize(13);  // Tamaño de fuente para la descripción
+        const imgRight = 10 + 30 + 10; // La posición derecha de la imagen + un margen
+        const availableWidth = pdf.internal.pageSize.getWidth() - imgRight - 10;
+        const lines = pdf.splitTextToSize(descripcion, availableWidth);
+        pdf.text(lines, imgRight, 20); 
 
         // Renderizar el contenido HTML del contenedor en una imagen usando html2canvas
         html2canvas(sceneContainer).then((canvas) => {
@@ -448,10 +372,10 @@ const existingLines = [];
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
             // Agregar la imagen al PDF
-            pdf.addImage(imgData, 'JPEG', 10, 30, imgWidth, imgHeight);
+            pdf.addImage(imgData, 'JPEG', 10, 45, imgWidth, imgHeight);
 
             // Guardar el PDF con el mismo nombre y formato que especificaste
-            pdf.save('escenario.pdf');
+            pdf.save('TRACKVIEW.pdf');
         });
     };
 
@@ -518,7 +442,7 @@ const existingLines = [];
     const agregarTexto = (text, font, x, y, z) => {
         const geometry = new TextGeometry(text, {
             font: font,
-            size: 1, // Ajusta el tamaño del texto según tus preferencias
+            size: 1.5, // Ajusta el tamaño del texto según tus preferencias
             height: 0.2, // Ajusta la altura del texto según tus preferencias
         });
         const material = new MeshBasicMaterial({ color: 0x000000 });
@@ -531,72 +455,7 @@ const existingLines = [];
         if (!showLines) {
             return;
         }
-        //agrea las lineas para el formato de "points"
-        if ('points' in data) {
-            // Para un solo camino con la propiedad "points"
-            const pointsData = data.points;
-            let anyPointOutsideCube = false;
-            if (!Array.isArray(pointsData) || pointsData.length < 2) {
-                console.warn('Invalid path format: "points" array is missing or has insufficient points.');
-                return;
-            }
-            const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-            const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-            const zRange = maxZ - minZ;
-            const curvePoints = pointsData.flatMap((point) => {
-                if (
-                    typeof point.x === 'number' &&
-                    typeof point.y === 'number' &&
-                    typeof point.z === 'string'
-                ) {
-                    const time = new Date(`1970-01-01T${point.z}`);
-                    const normalizedZ = (time.getTime() - minZ) / zRange;
-                    const scaledZ = normalizedZ * 30;
-                    //x y solo pueden tener valores entre -15 y 15
-                    if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
-                        return new THREE.Vector3(point.x, point.y, scaledZ);
-                    } else {
-                        anyPointOutsideCube = true;
-                        return [];
-                    }
-                } else {
-                    console.warn('Invalid point coordinates:', point);
-                    return [];
-                }
-            });
-            if (curvePoints.length < 2) {
-                console.warn('Not enough valid points to create lines.');
-                return;
-            }
-            const curve = new THREE.CatmullRomCurve3(curvePoints);
-            const points = curve.getPoints(180);
-            const positions = points.flatMap(v => [v.x, v.y, v.z]);
-            const colors = [];
-            const divisions = Math.round(12 * curvePoints.length);
-            const color = new THREE.Color();
-            for (let i = 0, l = divisions; i < l; i++) {
-                const t = i / l;
-                color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
-                colors.push(color.r, color.g, color.b);
-            }
-            const geometry = new LineGeometry().setPositions(positions);
-            geometry.setColors(colors);
-            const material = new LineMaterial({
-                color: 0xffffff,
-                linewidth: 5,
-                resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
-                dashed: false,
-                transparent: true,
-                vertexColors: true,
-            });
-            const thickLine = new Line2(geometry, material);
-            thickLine.computeLineDistances();
-            if (!anyPointOutsideCube) {
-                cube.current.add(thickLine);
-            }
-
-        //para mas de un camino, formato "paths"
-        } else if ('paths' in data) {
+        if ('paths' in data) {
             let allPathsInsideCube = true;
             let minZ = Infinity;
             let maxZ = -Infinity;
@@ -622,61 +481,7 @@ const existingLines = [];
             if (allPathsInsideCube) {
                 const zRange = maxZ - minZ;
         
-                // agrega colores a una sola linea
-                if (data.paths.length === 1) {
-                    // Aplicar lógica anterior para una sola línea
-                    const path = data.paths[0];
-                    const pointsData = path.points;
-                    let allPointsInsidePath = true;
-                    const curvePoints = pointsData.flatMap((point) => {
-                      if (typeof point.x === 'number' && typeof point.y === 'number' && typeof point.z === 'string') {
-                        const time = new Date(`1970-01-01T${point.z}`);
-                        const normalizedZ = (time.getTime() - minZ) / zRange;
-                        const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
-              
-                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
-                          return new THREE.Vector3(point.x, point.y, scaledZ);
-                        } else {
-                          allPointsInsidePath = false;
-                          return [];
-                        }
-                      } else {
-                        alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
-                        return [];
-                      }
-                    });
-              
-                    if (curvePoints.length >= 3 && allPointsInsidePath) {
-                        const curve = new THREE.CatmullRomCurve3(curvePoints);
-                        const points = curve.getPoints(180);
-                        const positions = points.flatMap(v => [v.x, v.y, v.z]);
-                        const colors = [];
-                        const divisions = Math.round(12 * curvePoints.length);
-                        const color = new THREE.Color();
-                        for (let i = 0, l = divisions; i < l; i++) {
-                            const t = i / l;
-                            color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
-                            colors.push(color.r, color.g, color.b);
-                        }
-                        const geometry = new LineGeometry().setPositions(positions);
-                        geometry.setColors(colors);
-                        const material = new LineMaterial({
-                            color: 0xffffff,
-                            linewidth: 5,
-                            resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
-                            dashed: false,
-                            transparent: true,
-                            vertexColors: true,
-                        });
-                        const thickLine = new Line2(geometry, material);
-                        thickLine.computeLineDistances();
-
-                        cube.current.add(thickLine);
-
-                    } else {
-                      allPathsInsideCube = false;
-                    }
-                  } else {
+                
                     // Aplicar lógica para múltiples líneas con colores aleatorios
                     data.paths.forEach((path) => {
                       const pointsData = path.points;
@@ -739,7 +544,7 @@ const existingLines = [];
                             }
                         });
                     }
-                  }
+                  
             } else {
                 alert("¡Advertencia! Al menos uno de los caminos contiene información incorrecta.");
             }
@@ -748,7 +553,12 @@ const existingLines = [];
 
     // Función para generar un color aleatorio
 function generateRandomColor() {
-    return new THREE.Color(Math.random(), Math.random(), Math.random());
+    const darkFactor = 0.6; // Puedes ajustar este valor según tus preferencias
+    return new THREE.Color(
+        Math.random() * darkFactor,
+        Math.random() * darkFactor,
+        Math.random() * darkFactor
+    );
   }
 
     const esLineaBorde = (linea) => {
@@ -808,55 +618,7 @@ function generateRandomColor() {
         if (!showPoints) {
             return;
         }
-        if ('points' in data) {
-            // Para un solo camino con la propiedad "points"
-            const pointsData = data.points;
-            if (!Array.isArray(pointsData) || pointsData.length === 0) {
-                console.warn('Invalid JSON format: "points" array is missing or empty.');
-                return;
-            }
-            const spheres = new THREE.Group();
-            let anyPointOutsideCube = false;
-            // Obtener la hora más baja y la hora más alta
-            const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-            const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
-            const zRange = maxZ - minZ;
-            pointsData.forEach((point) => {
-                if (
-                    typeof point.x === 'number' &&
-                    typeof point.y === 'number' &&
-                    typeof point.z === 'string'
-                ) {
-                    const time = new Date(`1970-01-01T${point.z}`);
-                    if (isNaN(time.getTime())) {
-                        alert("¡Advertencia! El formato de hora en al menos uno de los puntos no es válido.");
-                        return;
-                    }
-                    const normalizedZ = (time.getTime() - minZ) / zRange;
-                    const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
-                    // Verificar si el punto está fuera del cubo antes de agregarlo
-                    if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
-                        const sphereGeometry = new THREE.SphereGeometry(0.35, 16, 16);
-                        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
-                        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-                        // Almacenar los valores originales en userData
-                        sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
-                        sphere.position.set(point.x, point.y, scaledZ);
-                        sphere.userData.isPoint = true;
-                        spheres.add(sphere);
-                    } else {
-                        anyPointOutsideCube = true;
-                        alert("¡Advertencia! Al menos uno de los puntos está fuera del cubo.");
-                    }
-                } else {
-                    alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
-                }
-            });
-
-            if (!anyPointOutsideCube) {
-                cube.current.add(spheres);
-            }
-        } else if ('paths' in data) {
+        if ('paths' in data) {
             let allPathsInsideCube = true;
             let minZ = Infinity;
             let maxZ = -Infinity;
@@ -1030,7 +792,18 @@ function generateRandomColor() {
                 <Menu iconShape="square">
 
                     <MenuItem icon={<AiOutlineMenu style={{ fontSize: '35px', color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }}/>}onClick={() => { handleMenuToggle();}} style={{ textAlign: "center", color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(0)}
-                    onMouseLeave={() => setHoveredItem(null)}>{" "}<h2>Menú</h2></MenuItem>
+                    onMouseLeave={() => setHoveredItem(null)}>{" "}<h2 style={{ color: hoveredItem === 0 ? 'rgba(7,21,56,255)' : 'white', margin: '10px' }}>Menú</h2></MenuItem>
+
+                    <SubMenu label="Cargar Información" icon={<AiOutlineFile style={{ fontSize: '32px', color: hoveredItem === 11 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 11 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(11)} onMouseLeave={() => setHoveredItem(null)}>
+                        <MenuItem style={{ background: hoveredItem === 5 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFiletypeJson style={{ fontSize: '27px', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'yellow' }} />} onClick={loadPointsFromJSON} onMouseEnter={() => setHoveredItem(5)} onMouseLeave={() => setHoveredItem(null)}>
+                            <b>Cargar JSON</b>
+                        </MenuItem>
+
+                        <MenuItem style={{ background: hoveredItem === 8 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '32px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
+                        onMouseLeave={() => setHoveredItem(null)}>
+                            <b>Descarga</b>
+                        </MenuItem>
+                    </SubMenu>
                     
                     <SubMenu label="Visualizaciones" icon={<AiOutlineFundView style={{ fontSize: '32px', color: hoveredItem === 10 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 10 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(10)} onMouseLeave={() => setHoveredItem(null)}>
                         <MenuItem style={{ background: hoveredItem === 1 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} icon={<FcScatterPlot style={{ fontSize: '32px', color: hoveredItem === 1 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={(e) => toggleMostrar('MostrarPuntos', e.target.checked)} onMouseEnter={() => setHoveredItem(1)}
@@ -1046,17 +819,6 @@ function generateRandomColor() {
                         <MenuItem style={{ background: hoveredItem === 4 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidCheckbox style={{ fontSize: '32px', color: hoveredItem === 4 ? 'rgba(7,21,56,255)' : 'white' }} />} onClick={resetCameraPosition} onMouseEnter={() => setHoveredItem(4)} onMouseLeave={() => setHoveredItem(null)}>
                             <b>2D</b>
                         </MenuItem> 
-                    </SubMenu>
-                    
-                    <SubMenu label="Cargar Información" icon={<AiOutlineFile style={{ fontSize: '32px', color: hoveredItem === 11 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 11 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(11)} onMouseLeave={() => setHoveredItem(null)}>
-                        <MenuItem style={{ background: hoveredItem === 5 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BsFiletypeJson style={{ fontSize: '27px', color: hoveredItem === 5 ? 'rgba(7,21,56,255)' : 'yellow' }} />} onClick={loadPointsFromJSON} onMouseEnter={() => setHoveredItem(5)} onMouseLeave={() => setHoveredItem(null)}>
-                            <b>Cargar JSON</b>
-                        </MenuItem>
-
-                        <MenuItem style={{ background: hoveredItem === 8 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '32px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
-                        onMouseLeave={() => setHoveredItem(null)}>
-                            <b>Descarga</b>
-                        </MenuItem>
                     </SubMenu>
 
                     <SubMenu label="Zoom" icon={<AiOutlineExpand style={{ fontSize: '32px', color: hoveredItem === 12 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 12 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(12)} onMouseLeave={() => setHoveredItem(null)}>
