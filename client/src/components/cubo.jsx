@@ -36,11 +36,11 @@ const Cubo = () => {
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState(""); 
 
+    //método para actualizar la hora
     const actualizarFiltroHora = (newStartHour, newEndHour) => {
         // Obtener los valores de las horas seleccionadas
         const startHour = newStartHour ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
         const endHour = newEndHour ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
-    
         // Función para actualizar la visibilidad de los puntos
         const updatePointVisibility = (point) => {
             const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
@@ -48,34 +48,49 @@ const Cubo = () => {
         };
 
         let previousLine = null;
-
+        /*
+        método de un solo camino pero el con el formato:
+        {
+            "points":[{x: numero}, {y:numero}, {z: "00:00:00"}]
+        }
+        */
         const addLinesForVisiblePoints = (pointsData) => {
+            //filtra y obtiene el array de los puntos visibles
             const visiblePoints = pointsData.filter((point) => {
                 const pointTime = new Date(`1970-01-01T${point.z}`).getTime();
                 return pointTime >= startHour && pointTime <= endHour;
             });
-
+            //obtiene los maximo punto y el minimo punto que debe de haber en el cubo
             const minZ = Math.min(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
             const maxZ = Math.max(...pointsData.map(point => new Date(`1970-01-01T${point.z}`).getTime()));
+            //rango
             const zRange = maxZ - minZ;
 
             // Elimina la línea anterior si existe
             if (previousLine) {
                 cube.current.remove(previousLine);
             }
-    
+            //si existe mas de un punto crea la linea
             if (visiblePoints.length >= 2) {
+                //recorre la colección de arreglos de los puntos visibles
                 const curvePoints = visiblePoints.map((point) => {
+                    //obtiene la hora del punto z
                     const time = new Date(`1970-01-01T${point.z}`);
+                    //normaliza su valor para que este entre 0 y 1
                     const normalizedZ = (time.getTime() - minZ) / zRange;
+                    //lo adapta al tamaño del cubo q es 30
                     const scaledZ = normalizedZ * 30;
+                    //retorna el vector con los valores de los puntos
                     return new THREE.Vector3(point.x, point.y, scaledZ);
                 });
-    
+                //crea la curva
                 const curve = new THREE.CatmullRomCurve3(curvePoints);
+                //valor de la curva
                 const points = curve.getPoints(180);
+                //vectores de las posiciones
                 const positions = points.flatMap(v => [v.x, v.y, v.z]);
     
+                //crea los colors
                 const colors = [];
                 const divisions = Math.round(12 * curvePoints.length);
                 const color = new THREE.Color();
@@ -84,9 +99,10 @@ const Cubo = () => {
                     color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
                     colors.push(color.r, color.g, color.b);
                 }
-    
+                //une las posiciones y colores de la linea
                 const geometry = new LineGeometry().setPositions(positions);
                 geometry.setColors(colors);
+                //crea el material de la linea
                 const material = new LineMaterial({
                     color: 0xffffff,
                     linewidth: 5,
@@ -95,109 +111,135 @@ const Cubo = () => {
                     transparent: true,
                     vertexColors: true,
                 });
-    
+                //crea la linea
                 const thickLine = new Line2(geometry, material);
                 thickLine.computeLineDistances();
+                //agrega la linea
                 cube.current.add(thickLine);
+                //se convierte en la nueva linea previa en cao de que e aplique de nuevo el filtro
                 previousLine = thickLine;
             }
         };
 
-        
-
-    const addLinesForVisiblePaths = (pathsData) => {
+        /*
+        método de 2 o más caminos camino pero el con el formato:
+        {
+            "paths":[{
+                "points":[{x: numero}, {y:numero}, {z: "00:00:00"}]
+            }]
+        }
+        */
+        let minZ = Infinity;
+        let maxZ = -Infinity;
+const addLinesForVisiblePaths = (pathsData) => {
+    // Obtener el mínimo y máximo global antes de recorrer los caminos
     pathsData.forEach((path) => {
-        const visiblePoints = path.filter((point) => {
+        path.points.forEach((point) => {
+            const time = new Date(`1970-01-01T${point.z}`).getTime();
+            minZ = Math.min(minZ, time);
+            maxZ = Math.max(maxZ, time);
+        });
+    });
+
+    pathsData.forEach((path) => {
+        // Filtra y obtiene el array de los puntos visibles
+        const visiblePoints = path.points.filter((point) => {
             const pointTime = new Date(`1970-01-01T${point.z}`).getTime();
             return pointTime >= startHour && pointTime <= endHour;
         });
 
-        //console.log(visiblePoints);
-        
+        // Cuando haya 2 o más puntos se crea la línea
         if (visiblePoints.length >= 2) {
-
-            let minZ = Infinity;
-            let maxZ = -Infinity;
-
-            path.forEach((point) => {
-                // Convertir la cadena de tiempo a milisegundos
+            const zRange = maxZ - minZ;
+            const curvePoints = visiblePoints.flatMap((point) => {
                 const time = new Date(`1970-01-01T${point.z}`).getTime();
-                minZ = Math.min(minZ, time);
-                maxZ = Math.max(maxZ, time);
-            });
-
-            const curvePoints = visiblePoints.map((point) => {
-                const time = new Date(`1970-01-01T${point.z}`).getTime();
-                const zRange = maxZ - minZ;
                 const normalizedZ = (time - minZ) / zRange;
                 const scaledZ = normalizedZ * 30;
                 return new THREE.Vector3(point.x, point.y, scaledZ);
             });
 
-            console.log(curvePoints);
+            // Crea la curva
+            const curve = new THREE.CatmullRomCurve3(curvePoints);  
+            // Valor de la curva
+            const points = curve.getPoints(180);
+            // Vectores de las posiciones
+            const positions = points.flatMap(v => [v.x, v.y, v.z]);
 
-            const curve = new THREE.CatmullRomCurve3(curvePoints);
-                const points = curve.getPoints(180);
-                const positions = points.flatMap(v => [v.x, v.y, v.z]);
-    
-                const colors = [];
-                const divisions = Math.round(12 * curvePoints.length);
-                const color = new THREE.Color();
-                for (let i = 0, l = divisions; i < l; i++) {
-                    const t = i / l;
-                    color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
-                    colors.push(color.r, color.g, color.b);
-                }
-    
-                const geometry = new LineGeometry().setPositions(positions);
-                geometry.setColors(colors);
-                const material = new LineMaterial({
-                    color: 0xffffff,
-                    linewidth: 5,
-                    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    dashed: false,
-                    transparent: true,
-                    vertexColors: true,
-                });
-    
-                const thickLine = new Line2(geometry, material);
-                cube.current.add(thickLine);
+            // Crea los colores
+            const colors = [];
+            const divisions = Math.round(12 * curvePoints.length);
+            const color = new THREE.Color();
+            for (let i = 0, l = divisions; i < l; i++) {
+                const t = i / l;
+                color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
+                colors.push(color.r, color.g, color.b);
             }
-        });
-    };
 
-        // Actualizar la visibilidad según el filtro de hora
+            // Une las posiciones y colores de la línea
+            const geometry = new LineGeometry().setPositions(positions);
+            geometry.setColors(colors);
+
+            // Crea el material de la línea
+            const material = new LineMaterial({
+                color: 0xffffff,
+                linewidth: 5,
+                resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                dashed: false,
+                transparent: true,
+                vertexColors: true,
+            });
+
+            // Crea la línea
+            const thickLine = new Line2(geometry, material);
+            thickLine.computeLineDistances();
+
+            // Agrega la línea
+            cube.current.add(thickLine);
+        }
+    });
+};
+
+        // Actualizar la visibilidad según el filtro de hora de un solo camino
         cube.current.children.forEach((child) => {
             if (child instanceof THREE.Group && child.children.length > 0) {
                 child.children.forEach((point) => {
                     if (point.userData.isPoint && point.parent instanceof THREE.Group) {
                         const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
                         point.visible = pointTime >= startHour && pointTime <= endHour;
+                        //agrega la linea correspondientes a los puntos visibles
                         addLinesForVisiblePoints(child.children.map((p) => p.userData.originalValues));
                     }
                 });
             } else if (child instanceof Line2 && !esLineaBorde(child)) {
+                //elimina la linea antigua
                 cube.current.remove(child);
+                //agregar la linea para los puntos visibles contenidos en ese array de posiciones
                 addLinesForVisiblePoints(child.geometry.attributes.position.array);
             }
         });
     
-        // Actualizar la visibilidad de los puntos dentro de los caminos (paths)
+        // Actualizar la visibilidad de los puntos dentro de varios caminos (paths)
         cube.current.children.forEach((child) => {
             if (child instanceof THREE.Group && child.children.length > 0) {
                 child.children.forEach((path) => {
                     if (path instanceof THREE.Group && path.children.length > 0) {
                         path.children.forEach((point) => {
                             if (point.userData.isPoint && point.parent instanceof THREE.Group) {
+                                //agrega los puntos visibles
                                 updatePointVisibility(point);
                             }
                         });
-                        addLinesForVisiblePaths([path.children.map((p) => p.userData.originalValues)]);
+                        //agrega las lineas correspondientes a los puntos visibles
+                        const pathPoints = path.children.map((p) => p.userData.originalValues);
+                        addLinesForVisiblePaths([{ points: pathPoints }]);
                     } else if (path instanceof Line2 && !esLineaBorde(path)) {
-                        cube.current.remove([path]);
-                        addLinesForVisiblePaths([path.geometry.attributes.position.array]);
+                        //elimina las lineas antiguas
+                        cube.current.remove(path);
                     }
                 });
+            }else if (child instanceof Line2 && !esLineaBorde(child)) {
+                //elimina la linea antigua
+                cube.current.remove(child);
             }
         });
     };
@@ -356,7 +398,6 @@ const Cubo = () => {
         } else if (tipo === 'MostrarLineas') {
             setShowLines(!showLines);
         }
-
         actualizarVisibilidad();
     };
 
@@ -477,7 +518,7 @@ const Cubo = () => {
         if (!showLines) {
             return;
         }
-
+        //agrea las lineas para el formato de "points"
         if ('points' in data) {
             // Para un solo camino con la propiedad "points"
             const pointsData = data.points;
@@ -498,6 +539,7 @@ const Cubo = () => {
                     const time = new Date(`1970-01-01T${point.z}`);
                     const normalizedZ = (time.getTime() - minZ) / zRange;
                     const scaledZ = normalizedZ * 30;
+                    //x y solo pueden tener valores entre -15 y 15
                     if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
                         return new THREE.Vector3(point.x, point.y, scaledZ);
                     } else {
@@ -539,6 +581,8 @@ const Cubo = () => {
             if (!anyPointOutsideCube) {
                 cube.current.add(thickLine);
             }
+
+        //para mas de un camino, formato "paths"
         } else if ('paths' in data) {
             let allPathsInsideCube = true;
             let minZ = Infinity;
@@ -565,33 +609,34 @@ const Cubo = () => {
             if (allPathsInsideCube) {
                 const zRange = maxZ - minZ;
         
-                
-                data.paths.forEach((path) => {
+                // agrega colores a una sola linea
+                if (data.paths.length === 1) {
+                    // Aplicar lógica anterior para una sola línea
+                    const path = data.paths[0];
                     const pointsData = path.points;
                     let allPointsInsidePath = true;
                     const curvePoints = pointsData.flatMap((point) => {
-                        if (typeof point.x === 'number' && typeof point.y === 'number' && typeof point.z === 'string') {
-                            const time = new Date(`1970-01-01T${point.z}`);
-                            const normalizedZ = (time.getTime() - minZ) / zRange;
-                            const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
-        
-                            if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
-                                return new THREE.Vector3(point.x, point.y, scaledZ);
-                            } else {
-                                allPointsInsidePath = false;
-                                return [];
-                            }
+                      if (typeof point.x === 'number' && typeof point.y === 'number' && typeof point.z === 'string') {
+                        const time = new Date(`1970-01-01T${point.z}`);
+                        const normalizedZ = (time.getTime() - minZ) / zRange;
+                        const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+              
+                        if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                          return new THREE.Vector3(point.x, point.y, scaledZ);
                         } else {
-                            alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
-                            return [];
+                          allPointsInsidePath = false;
+                          return [];
                         }
+                      } else {
+                        alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
+                        return [];
+                      }
                     });
-        
+              
                     if (curvePoints.length >= 3 && allPointsInsidePath) {
                         const curve = new THREE.CatmullRomCurve3(curvePoints);
                         const points = curve.getPoints(180);
                         const positions = points.flatMap(v => [v.x, v.y, v.z]);
-        
                         const colors = [];
                         const divisions = Math.round(12 * curvePoints.length);
                         const color = new THREE.Color();
@@ -600,10 +645,8 @@ const Cubo = () => {
                             color.setHSL(t, 1.0, 0.5, THREE.SRGBColorSpace);
                             colors.push(color.r, color.g, color.b);
                         }
-        
                         const geometry = new LineGeometry().setPositions(positions);
                         geometry.setColors(colors);
-        
                         const material = new LineMaterial({
                             color: 0xffffff,
                             linewidth: 5,
@@ -612,28 +655,88 @@ const Cubo = () => {
                             transparent: true,
                             vertexColors: true,
                         });
-        
                         const thickLine = new Line2(geometry, material);
                         thickLine.computeLineDistances();
-        
+
                         cube.current.add(thickLine);
+
                     } else {
-                        allPathsInsideCube = false;
+                      allPathsInsideCube = false;
                     }
-                });
-                if (!allPathsInsideCube) {
-                    // Limpia las líneas existentes antes de agregar nuevas
-                    cube.current.children.slice().forEach((child) => {
-                        if (child instanceof Line2) {
-                            cube.current.remove(child);
+                  } else {
+                    // Aplicar lógica para múltiples líneas con colores aleatorios
+                    data.paths.forEach((path) => {
+                      const pointsData = path.points;
+                      let allPointsInsidePath = true;
+                      const curvePoints = pointsData.flatMap((point) => {
+                        if (typeof point.x === 'number' && typeof point.y === 'number' && typeof point.z === 'string') {
+                          const time = new Date(`1970-01-01T${point.z}`);
+                          const normalizedZ = (time.getTime() - minZ) / zRange;
+                          const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+              
+                          if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                            return new THREE.Vector3(point.x, point.y, scaledZ);
+                          } else {
+                            allPointsInsidePath = false;
+                            return [];
+                          }
+                        } else {
+                          alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
+                          return [];
                         }
+                      });
+              
+                      if (curvePoints.length >= 3 && allPointsInsidePath) {
+                        const curve = new THREE.CatmullRomCurve3(curvePoints);
+                        const points = curve.getPoints(180);
+                        const positions = points.flatMap(v => [v.x, v.y, v.z]);
+              
+                        const colors = [];
+                        const divisions = Math.round(100 * curvePoints.length);
+              
+                        const lineColor = generateRandomColor();
+                        for (let i = 0, l = divisions; i < l; i++) {
+                          colors.push(lineColor.r, lineColor.g, lineColor.b);
+                        }
+              
+                        const geometry = new LineGeometry().setPositions(positions);
+                        geometry.setColors(colors);
+              
+                        const material = new LineMaterial({
+                          linewidth: 5,
+                          resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+                          dashed: false,
+                          transparent: true,
+                          vertexColors: true,
+                        });
+              
+                        const thickLine = new Line2(geometry, material);
+                        thickLine.computeLineDistances();
+              
+                        cube.current.add(thickLine);
+                      } else {
+                        allPathsInsideCube = false;
+                      }
                     });
-                }
+                    if (!allPathsInsideCube) {
+                        // Limpia las líneas existentes antes de agregar nuevas
+                        cube.current.children.slice().forEach((child) => {
+                            if (child instanceof Line2) {
+                                cube.current.remove(child);
+                            }
+                        });
+                    }
+                  }
             } else {
                 alert("¡Advertencia! Al menos uno de los caminos contiene información incorrecta.");
             }
         }
     };
+
+    // Función para generar un color aleatorio
+function generateRandomColor() {
+    return new THREE.Color(Math.random(), Math.random(), Math.random());
+  }
 
     const esLineaBorde = (linea) => {
         const colorLinea = linea.material.color;
@@ -651,7 +754,7 @@ const Cubo = () => {
             cube.current.children[0].material = material; // Actualizar el material del plane1
         });
     };
-
+    //función para cargar json
     const loadPointsFromJSON = () => {
         const input = document.createElement("input");
         input.type = "file";
@@ -720,7 +823,7 @@ const Cubo = () => {
                     const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
                     // Verificar si el punto está fuera del cubo antes de agregarlo
                     if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
-                        const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                        const sphereGeometry = new THREE.SphereGeometry(0.35, 16, 16);
                         const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
                         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
                         // Almacenar los valores originales en userData
@@ -780,7 +883,7 @@ const Cubo = () => {
                             const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
         
                             if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
-                                const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                                const sphereGeometry = new THREE.SphereGeometry(0.35, 16, 16);
                                 const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
                                 const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
                                 // Almacenar los valores originales en userData
