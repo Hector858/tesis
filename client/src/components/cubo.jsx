@@ -38,6 +38,12 @@ const Cubo = () => {
 
     //método para actualizar la hora
     const actualizarFiltroHora = (newStartHour, newEndHour) => {
+    // Limpia las líneas existentes antes de agregar nuevas
+    cube.current.children.slice().forEach((child) => {
+        if (child instanceof Line2) {
+            cube.current.remove(child);
+        }
+    });
         // Obtener los valores de las horas seleccionadas
         const startHour = newStartHour ? new Date(`1970-01-01T${startTime}`).getTime() : -Infinity;
         const endHour = newEndHour ? new Date(`1970-01-01T${endTime}`).getTime() : Infinity;
@@ -131,22 +137,43 @@ const Cubo = () => {
         */
         let minZ = Infinity;
         let maxZ = -Infinity;
+
+    cube.current.children.forEach((child) => {
+        if (child instanceof THREE.Group && child.children.length > 0) {
+            child.children.forEach((path) => {
+                if (path.userData.isPoint && path.parent instanceof THREE.Group) {
+                    const pointTime = new Date(`1970-01-01T${path.userData.originalValues.z}`).getTime();
+                    minZ = Math.min(minZ, pointTime);
+                    maxZ = Math.max(maxZ, pointTime);
+                } else if (path instanceof THREE.Group && path.children.length > 0) {
+                    path.children.forEach((point) => {
+                        if (point.userData.isPoint && point.parent instanceof THREE.Group) {
+                            const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
+                            minZ = Math.min(minZ, pointTime);
+                            maxZ = Math.max(maxZ, pointTime);
+                        }
+                    });
+                }
+            });
+        } else if (child instanceof Line2 && !esLineaBorde(child)) {
+            const pointsArray = child.geometry.attributes.position.array;
+            for (let i = 2; i < pointsArray.length; i += 3) {
+                const pointTime = new Date(`1970-01-01T${pointsArray[i]}:00`).getTime();
+                minZ = Math.min(minZ, pointTime);
+                maxZ = Math.max(maxZ, pointTime);
+            }
+        }
+    });
 const addLinesForVisiblePaths = (pathsData) => {
     // Obtener el mínimo y máximo global antes de recorrer los caminos
-    pathsData.forEach((path) => {
-        path.points.forEach((point) => {
-            const time = new Date(`1970-01-01T${point.z}`).getTime();
-            minZ = Math.min(minZ, time);
-            maxZ = Math.max(maxZ, time);
-        });
-    });
-
     pathsData.forEach((path) => {
         // Filtra y obtiene el array de los puntos visibles
         const visiblePoints = path.points.filter((point) => {
             const pointTime = new Date(`1970-01-01T${point.z}`).getTime();
             return pointTime >= startHour && pointTime <= endHour;
         });
+
+        console.log(path.length);
 
         // Cuando haya 2 o más puntos se crea la línea
         if (visiblePoints.length >= 2) {
@@ -192,37 +219,25 @@ const addLinesForVisiblePaths = (pathsData) => {
             // Crea la línea
             const thickLine = new Line2(geometry, material);
             thickLine.computeLineDistances();
-
             // Agrega la línea
             cube.current.add(thickLine);
         }
     });
 };
 
-        // Actualizar la visibilidad según el filtro de hora de un solo camino
-        cube.current.children.forEach((child) => {
-            if (child instanceof THREE.Group && child.children.length > 0) {
-                child.children.forEach((point) => {
-                    if (point.userData.isPoint && point.parent instanceof THREE.Group) {
-                        const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
-                        point.visible = pointTime >= startHour && pointTime <= endHour;
-                        //agrega la linea correspondientes a los puntos visibles
-                        addLinesForVisiblePoints(child.children.map((p) => p.userData.originalValues));
-                    }
-                });
-            } else if (child instanceof Line2 && !esLineaBorde(child)) {
-                //elimina la linea antigua
-                cube.current.remove(child);
-                //agregar la linea para los puntos visibles contenidos en ese array de posiciones
-                addLinesForVisiblePoints(child.geometry.attributes.position.array);
-            }
-        });
+const existingLines = [];
     
         // Actualizar la visibilidad de los puntos dentro de varios caminos (paths)
         cube.current.children.forEach((child) => {
             if (child instanceof THREE.Group && child.children.length > 0) {
                 child.children.forEach((path) => {
-                    if (path instanceof THREE.Group && path.children.length > 0) {
+                    if (path.userData.isPoint && path.parent instanceof THREE.Group) {
+                        const pointTime = new Date(`1970-01-01T${path.userData.originalValues.z}`).getTime();
+                        path.visible = pointTime >= startHour && pointTime <= endHour;
+                        //agrega la linea correspondientes a los puntos visibles
+                        addLinesForVisiblePoints(child.children.map((p) => p.userData.originalValues));
+                    }
+                    else if (path instanceof THREE.Group && path.children.length > 0) {
                         path.children.forEach((point) => {
                             if (point.userData.isPoint && point.parent instanceof THREE.Group) {
                                 //agrega los puntos visibles
@@ -232,14 +247,12 @@ const addLinesForVisiblePaths = (pathsData) => {
                         //agrega las lineas correspondientes a los puntos visibles
                         const pathPoints = path.children.map((p) => p.userData.originalValues);
                         addLinesForVisiblePaths([{ points: pathPoints }]);
-                    } else if (path instanceof Line2 && !esLineaBorde(path)) {
-                        //elimina las lineas antiguas
-                        cube.current.remove(path);
                     }
                 });
             }else if (child instanceof Line2 && !esLineaBorde(child)) {
-                //elimina la linea antigua
-                cube.current.remove(child);
+                addLinesForVisiblePoints(child.geometry.attributes.position.array);
+                // Guarda la referencia de las líneas existentes
+                existingLines.push(child);
             }
         });
     };
