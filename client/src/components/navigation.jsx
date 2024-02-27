@@ -37,8 +37,15 @@ export const Navigation = (props) => {
             <span className="icon-bar"></span>{" "}
           </button>
           <Link to="/" className="navbar-brand page-scroll" href="#page-top">
-            Trackview
-          </Link>{" "}
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <img
+                src="https://i.postimg.cc/NMSPtQWt/TRACKVIEW.png"
+                alt="Logo"
+                style={{ height: "50px", marginRight: "3px" }}
+              />
+              <span style={{ lineHeight: "50px" }}>Trackview</span>
+            </div>
+          </Link>
         </div>
 
         <div
@@ -63,14 +70,14 @@ export const Navigation = (props) => {
             </li>
             <li>
               <Link to="/" className="page-scroll" onClick={(e) => handleClick(e, "#portfolio")}>
-                Gallery
+                Ejemplos
               </Link>
             </li>
-            <li>
+            {/* <li>
               <Link to="/" className="page-scroll" onClick={(e) => handleClick(e, "#testimonials")}>
                 Testimonials
               </Link>
-            </li>
+            </li> */}
             <li>
               <Link to="/" className="page-scroll" onClick={(e) => handleClick(e, "#team")}>
                 Equipo

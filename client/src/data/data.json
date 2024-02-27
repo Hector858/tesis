@@ -1,10 +1,10 @@
 {
   "Header": {
     "title": "Visualizacion de datos espacio-temporales",
-    "paragraph": "Trackview es una aplicación web que se encarga de cargar y presentar datos espacio-temporales en 2D y 3D, tiene la capacidad de cargar datos de diferente ambiente siempre y cuando se siga el formato establecido."
+    "paragraph": "¿De qué trata Trackview? ... Trackview es una aplicación web que se encarga de cargar y presentar datos espacio-temporales en 2D y 3D, tiene la capacidad de cargar datos de diferente ambiente siempre y cuando se siga el formato establecido."
   },
   "About": {
-    "paragraph": "En la primera estructura... ",
+    "paragraph": "En el caso que desee visualizar datos espacio-temporales que contengan una sola trayectoria ",
     "Why": [
       "Lorem ipsum dolor",
       "Tempor incididunt",
@@ -20,61 +20,46 @@
   },
   "Gallery": [
     {
-      "title": "Project Title",
-      "largeImage": "img/portfolio/01-large.jpg",
-      "smallImage": "img/portfolio/01-small.jpg"
+      "title": "Ocultar lineas",
+      "largeImage": "img/portfolio/oculL-large.png",
+      "smallImage": "img/portfolio/oculL-small.png"
     },
     {
-      "title": "Project Title",
-      "largeImage": "img/portfolio/02-large.jpg",
-      "smallImage": "img/portfolio/02-small.jpg"
+      "title": "Ocultar puntos",
+      "largeImage": "img/portfolio/oculP-large.png",
+      "smallImage": "img/portfolio/oculP-small.png"
     },
     {
-      "title": "Project Title",
-      "largeImage": "img/portfolio/03-large.jpg",
-      "smallImage": "img/portfolio/03-small.jpg"
+      "title": "Perspectiva 2D",
+      "largeImage": "img/portfolio/2d-large.png",
+      "smallImage": "img/portfolio/2d-small.png"
     },
     {
-      "title": "Project Title",
-      "largeImage": "img/portfolio/04-large.jpg",
-      "smallImage": "img/portfolio/04-small.jpg"
+      "title": "Perspectiva 3D",
+      "largeImage": "img/portfolio/3d-large.png",
+      "smallImage": "img/portfolio/3d-small.png"
     },
     {
-      "title": "Project Title",
-      "largeImage": "img/portfolio/05-large.jpg",
-      "smallImage": "img/portfolio/05-small.jpg"
+      "title": "Filtrar los datos",
+      "largeImage": "img/portfolio/filtrado-large.png",
+      "smallImage": "img/portfolio/filtrado-small.png"
     },
     {
-      "title": "Project Title",
-      "largeImage": "img/portfolio/06-large.jpg",
-      "smallImage": "img/portfolio/06-small.jpg"
-    },
-    {
-      "title": "Project Title",
-      "largeImage": "img/portfolio/07-large.jpg",
-      "smallImage": "img/portfolio/07-small.jpg"
-    },
-    {
-      "title": "Project Title",
-      "largeImage": "img/portfolio/08-large.jpg",
-      "smallImage": "img/portfolio/08-small.jpg"
-    },
-    {
-      "title": "Project Title",
-      "largeImage": "img/portfolio/09-large.jpg",
-      "smallImage": "img/portfolio/09-small.jpg"
+      "title": "Más de una trayectoria",
+      "largeImage": "img/portfolio/masD-large.png",
+      "smallImage": "img/portfolio/masD-small.png"
     }
   ],
   "Services": [
     {
-      "icon": "fa fa-wordpress",
+      "icon": "fa fa-bars",
       "name": "Ir a Gráfica",
       "text": "En el menú superior dar clic en la opción de Gráfica para dirigirse a la página para visualizar los datos."
     },
     {
-      "icon": "fa fa-cart-arrow-down",
+      "icon": "fa fa-caret-down",
       "name": "Abrir el menú",
-      "text": "En la parte izquierda abrir el menu para observar las opciónes."
+      "text": "Ya en la página de Gráfica, en la parte izquierda abrir el menu para observar las opciónes."
     },
     {
       "icon": "fa fa-cloud-download",
@@ -82,17 +67,17 @@
       "text": "En la opción de Cargar Información subir el archivo JSON con el formato anteriormente mencionado"
     },
     {
-      "icon": "fa fa-language",
+      "icon": "fa fa-pencil",
       "name": "Personalización",
       "text": "Para mostrar/ocultar los puntos y las lineas, o ver los datos en perspectiva 2d elegir la opción de Visualizaciones"
     },
     {
-      "icon": "fa fa-plane",
+      "icon": "fa fa-compress",
       "name": "Zoom",
       "text": "En la opción de Zoom se aumente o disminuye la visualización de los datos, tambien incluye ver en pantalla completa el escenario."
     },
     {
-      "icon": "fa fa-pie-chart",
+      "icon": "fa fa-filter",
       "name": "Filtro",
       "text": "Elija la hora de inicio y la hora final que desea ver los datos."
     }
@@ -131,12 +116,12 @@
   ],
   "Team": [
     {
-      "img": "img/team/01.jpg",
+      "img": "img/team/hector.jpg",
       "name": "Hector Cedeño",
       "job": "Desarrollador BackEnd"
     },
     {
-      "img": "img/team/02.jpg",
+      "img": "img/team/will.jpg",
       "name": "Wilmer Solano",
       "job": "Desarrollador FrontEnd"
     }
@@ -151,22 +136,22 @@
   },
   "Features": [
     {
-      "icon": "fa fa-comments-o",
+      "icon": "fa fa-file",
       "title": "Formato sencillo",
       "text": "Se trabaja con formato JSON, el cual contiene una estructura sencilla y facil de adaptar a los datos"
     },
     {
-      "icon": "fa fa-bullhorn",
+      "icon": "fa fa-desktop",
       "title": "Visualización 2D y 3D",
       "text": "Contiene opciónes para observar los datos desde las perspectivas 2D y 3D, mejorando el análisi de los datos. "
     },
     {
-      "icon": "fa fa-group",
+      "icon": "fa fa-download",
       "title": "Descarga de visualización",
       "text": "Se genera un reporte con la visualización de los datos en tiempo real."
     },
     {
-      "icon": "fa fa-magic",
+      "icon": "fa fa-cube",
       "title": "Personlización",
       "text": "Incluye la personalización a gusto del usuario al momento de visualizar los datos."
     }

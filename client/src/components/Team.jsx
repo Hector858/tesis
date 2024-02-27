@@ -11,10 +11,10 @@ export const Team = (props) => {
               El desarrollo de la aplicación web Trackview estuvo a cargo de:
             </p>
           </div>
-          <div id="row">
+          <div>
             {props.data
               ? props.data.map((d, i) => (
-                <div key={`${d.name}-${i}`} className="col-md-3 col-sm-6 team">
+                <div key={`${d.name}-${i}`} className="col-md-4 team">
                   <div className="thumbnail">
                     {" "}
                     <img src={d.img} alt="..." className="team-img" />

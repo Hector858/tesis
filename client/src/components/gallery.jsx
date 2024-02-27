@@ -6,27 +6,26 @@ export const Gallery = (props) => {
     <div id="portfolio" className="text-center">
       <div className="container">
         <div className="section-title">
-          <h2>Gallery</h2>
+          <h2>Ejemplos</h2>
           <p>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit duis sed
-            dapibus leonec.
+            A continuación, se presentan los ejemplos aplicando todas las funcionalidades que se tiene al visualizar los datos.
           </p>
         </div>
         <div className="row">
           <div className="portfolio-items">
             {props.data
               ? props.data.map((d, i) => (
-                  <div
-                    key={`${d.title}-${i}`}
-                    className="col-sm-6 col-md-4 col-lg-4"
-                  >
-                    <Image
-                      title={d.title}
-                      largeImage={d.largeImage}
-                      smallImage={d.smallImage}
-                    />
-                  </div>
-                ))
+                <div
+                  key={`${d.title}-${i}`}
+                  className="col-sm-6 col-md-4 col-lg-4"
+                >
+                  <Image
+                    title={d.title}
+                    largeImage={d.largeImage}
+                    smallImage={d.smallImage}
+                  />
+                </div>
+              ))
               : "Loading..."}
           </div>
         </div>
