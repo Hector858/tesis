@@ -226,6 +226,7 @@ const existingLines = [];
 
         // Configuración de la cámara
         camera.current.position.set(0, 0, 60);
+        camera.current.up.set(0, 0, 1);
         crearCubo();
         const grid = new THREE.GridHelper(20, 10, 0x202020, 0x202020);
         grid.position.set(0, 0, 0);
@@ -316,6 +317,17 @@ const existingLines = [];
     const resetCameraPosition = () => {
         camera.current.position.set(0, 0, 60);
         camera.current.lookAt(new THREE.Vector3(0, 0, 0));
+        camera.current.rotation.set(0, 0, 0);
+
+        // Ajustar el campo de visión para una vista ortográfica
+        const aspect = window.innerWidth / window.innerHeight;
+        camera.current.left = -30 * aspect;
+        camera.current.right = 30 * aspect;
+        camera.current.top = 30;
+        camera.current.bottom = -30;
+
+        // Actualizar la matriz de proyección de la cámara
+        camera.current.updateProjectionMatrix();
     };
     
 
