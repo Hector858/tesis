@@ -18,6 +18,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useNavigate } from 'react-router-dom';
 import { CgArrowLeftO } from "react-icons/cg";
+import swal from 'sweetalert';
 
 const Cubo = () => {
     const scene = useRef(null);
@@ -506,7 +507,7 @@ const existingLines = [];
             data.paths.forEach((path) => {
                 const pointsData = path.points;
                 pointsData.forEach((point) => {
-                    if (typeof point.z === 'string') {
+                    if (typeof point.x === 'number' && typeof point.y === 'number' && typeof point.z === 'string') {
                         const time = new Date(`1970-01-01T${point.z}`);
                         if (!isNaN(time.getTime())) {
                             minZ = Math.min(minZ, time.getTime());
@@ -541,7 +542,7 @@ const existingLines = [];
                             return [];
                           }
                         } else {
-                          alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
+                          //alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
                           return [];
                         }
                       });
@@ -588,7 +589,7 @@ const existingLines = [];
                     }
                   
             } else {
-                alert("¡Advertencia! Al menos uno de los caminos contiene información incorrecta.");
+                console.log("¡Advertencia! Al menos uno de los caminos contiene información incorrecta.");
             }
         }
     };
@@ -666,18 +667,28 @@ function generateRandomColor() {
             data.paths.forEach((path) => {
                 const pointsData = path.points;
                 pointsData.forEach((point) => {
-                    if (typeof point.z === 'string') {
+                    if (typeof point.x === 'number' && typeof point.y === 'number' && typeof point.z === 'string') {
                         const time = new Date(`1970-01-01T${point.z}`);
                         if (!isNaN(time.getTime())) {
                             minZ = Math.min(minZ, time.getTime());
                             maxZ = Math.max(maxZ, time.getTime());
                         } else {
-                            alert(`¡Advertencia! El formato de hora en al menos uno de los puntos no es válido: ${point.z}`);
+                            swal({
+                                title: "¡Error!",
+                                text: "El formato de hora en al menos uno de los puntos no es válido",
+                                icon: "error",
+                            });
                             allPathsInsideCube = false;
+                            console.log(`El formato de hora en al menos uno de los puntos no es válido: ${point.z}`);
                         }
                     } else {
-                        alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
+                        swal({
+                            title: "¡Error!",
+                            text: "Coordenadas inválidas o mayores al rango del cubo",
+                            icon: "error",
+                        });
                         allPathsInsideCube = false;
+                        console.log(`Coordenadas con puntos inválidos: x=${point.x}, y=${point.y}, z=${point.z}`);
                     }
                 });
             });
@@ -706,8 +717,13 @@ function generateRandomColor() {
                                 sphere.userData.isPoint = true;
                                 spheres.add(sphere);
                             }else {
-                                alert(`Invalid point coordinates: x=${point.x}, y=${point.y}, z=${point.z}`);
+                                swal({
+                                    title: "¡Error!",
+                                    text: "Coordenadas inválidas o mayores al rango del cubo",
+                                    icon: "error",
+                                });
                                 allPointsInsidePath = false;
+                                console.log(`Coordenadas con puntos inválidos: x=${point.x}, y=${point.y}, z=${point.z}`);
                             }
                         }
                     });
@@ -722,13 +738,21 @@ function generateRandomColor() {
                 if (allPathsInsideCube) {
                     cube.current.add(pathsGroup);
                 } else {
-                    alert("¡Advertencia! Al menos uno de los caminos contiene puntos fuera del cubo.");
+                    swal({
+                        title: "¡Error!",
+                        text: "Al menos una de las trayectorias contiene coordenadas fuera del cubo.",
+                        icon: "error",
+                    });
                 }
             } else {
-                alert("¡Advertencia! Al menos uno de los puntos contiene información incorrecta.");
+                console.log("¡Advertencia! Al menos uno de los caminos contiene información incorrecta.");
             }
         } else {
-            alert("Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.");
+            swal({
+                title: "¡Error!",
+                text: "Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.",
+                icon: "error",
+            });
         }
     };
 
@@ -837,7 +861,7 @@ function generateRandomColor() {
 
                         <MenuItem style={{ background: hoveredItem === 8 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 8 ? 'rgba(7,21,56,255)' : 'white' }} icon={<BiSolidFilePdf style={{ fontSize: '32px', color: 'red' }} />} onClick={imprimirPDF} onMouseEnter={() => setHoveredItem(8)}
                         onMouseLeave={() => setHoveredItem(null)}>
-                            <b>Descarga</b>
+                            <b>Captura</b>
                         </MenuItem>
                     </SubMenu>
                     
