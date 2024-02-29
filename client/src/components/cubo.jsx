@@ -16,6 +16,8 @@ import { WiTime1, WiTime9 } from "react-icons/wi";
 import { Sidebar, Menu, MenuItem, SubMenu } from 'react-pro-sidebar';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { useNavigate } from 'react-router-dom';
+import { CgArrowLeftO } from "react-icons/cg";
 
 const Cubo = () => {
     const scene = useRef(null);
@@ -35,6 +37,11 @@ const Cubo = () => {
     const [hoveredItem, setHoveredItem] = useState(null);
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState(""); 
+    const navigate = useNavigate();
+
+    const handleNavigateHome = () => {
+        navigate('/');
+      };
 
     //método para actualizar la hora
     const actualizarFiltroHora = (newStartHour, newEndHour) => {
@@ -218,7 +225,7 @@ const existingLines = [];
         container.appendChild(labelDiv);
 
         // Configuración de la cámara
-        camera.current.position.set(0, 0, 40);
+        camera.current.position.set(0, 0, 60);
         crearCubo();
         const grid = new THREE.GridHelper(20, 10, 0x202020, 0x202020);
         grid.position.set(0, 0, 0);
@@ -228,7 +235,9 @@ const existingLines = [];
         // Configuración de los controles de órbita
         controls.current = new OrbitControls(camera.current, renderer.current.domElement);
         container.appendChild(controls.current.domElement); // Adjuntar controles al nuevo contenedor
-
+        // Invertir dirección de teclas
+        controls.current.keyPanSpeed = -controls.current.keyPanSpeed;
+        controls.current.listenToKeyEvents( window );
         // Llamar a la animación
         animate();
 
@@ -305,9 +314,10 @@ const existingLines = [];
         setFullscreen(!fullscreen);
     };
     const resetCameraPosition = () => {
-        camera.current.position.set(0, 0, 40);
+        camera.current.position.set(0, 0, 60);
         camera.current.lookAt(new THREE.Vector3(0, 0, 0));
     };
+    
 
     const zoomStep = 0.1; // Puedes ajustar el valor según tus necesidades
 
@@ -398,9 +408,9 @@ const existingLines = [];
             // Agregar textos en los extremos de AxesHelper
             const loader = new FontLoader();
             loader.load("https://threejs.org/examples/fonts/helvetiker_regular.typeface.json", function (font) {
-                agregarTexto("X", font, 15, -15, 0);
-                agregarTexto("Y", font, -15, 15, 0);
-                agregarTexto("T", font, -15, -15, 30);
+                agregarTexto("X", font, 15, -15, 0, 'color1');
+                agregarTexto("Y", font, -15, 15, 0, 'color2');
+                agregarTexto("T", font, -15, -15, 30, 'color3');
             });
         } else {
             // Limpiar todos los elementos del cubo existente, excepto el AxesHelper
@@ -439,22 +449,42 @@ const existingLines = [];
         scene.current.add(cube.current);
     };
 
-    const agregarTexto = (text, font, x, y, z) => {
+    const agregarTexto = (text, font, x, y, z, olor) => {
+        // Crear geometría de texto
         const geometry = new TextGeometry(text, {
             font: font,
-            size: 1.5, // Ajusta el tamaño del texto según tus preferencias
+            size: 1.7, // Ajusta el tamaño del texto según tus preferencias
             height: 0.2, // Ajusta la altura del texto según tus preferencias
         });
-        const material = new MeshBasicMaterial({ color: 0x000000 });
+    
+        // Crear material con color según el olor
+        let material;
+        switch (olor) {
+            case 'color1':
+                material = new MeshBasicMaterial({ color: 0xFF0000 }); // Rojo
+                break;
+            case 'color2':
+                material = new MeshBasicMaterial({ color: 0x00FF00 }); // Verde
+                break;
+            case 'color3':
+                material = new MeshBasicMaterial({ color: 0x0000FF }); // Verde
+                break;
+            // Agrega más casos según tus necesidades
+            default:
+                material = new MeshBasicMaterial({ color: 0x000000 }); // Negro por defecto
+                break;
+        }
+    
+        // Crear malla de texto con el material
         const textMesh = new Mesh(geometry, material);
         textMesh.position.set(x, y, z);
+    
+        // Agregar la malla de texto al objeto cube
         cube.current.add(textMesh);
     };
 
     const agregarLineas = (data) => {
-        if (!showLines) {
-            return;
-        }
+
         if ('paths' in data) {
             let allPathsInsideCube = true;
             let minZ = Infinity;
@@ -504,7 +534,7 @@ const existingLines = [];
                         }
                       });
               
-                      if (curvePoints.length >= 3 && allPointsInsidePath) {
+                      if (curvePoints.length >= 2 && allPointsInsidePath) {
                         const curve = new THREE.CatmullRomCurve3(curvePoints);
                         const points = curve.getPoints(180);
                         const positions = points.flatMap(v => [v.x, v.y, v.z]);
@@ -553,7 +583,7 @@ const existingLines = [];
 
     // Función para generar un color aleatorio
 function generateRandomColor() {
-    const darkFactor = 0.6; // Puedes ajustar este valor según tus preferencias
+    const darkFactor = 0.5; // Puedes ajustar este valor según tus preferencias
     return new THREE.Color(
         Math.random() * darkFactor,
         Math.random() * darkFactor,
@@ -615,9 +645,6 @@ function generateRandomColor() {
     };
 
     const addPointsFromJSON = (data) => {
-        if (!showPoints) {
-            return;
-        }
         if ('paths' in data) {
             let allPathsInsideCube = true;
             let minZ = Infinity;
@@ -782,10 +809,7 @@ function generateRandomColor() {
     }, [startTime, endTime]);
 
     return (
-        <div>
-            <hr></hr>
-            <hr></hr>
-            <hr></hr>
+
         <div style={{ display: 'flex' }} ref={mainContainer}>
             <Sidebar collapsed={!showSidebar} style={{ height: "100vh", position: 'absolute' }} backgroundColor="rgba(7,21,56,255)" ref={menuContainer}>
             
@@ -855,12 +879,21 @@ function generateRandomColor() {
                             <b> Fin</b>
                         </MenuItem>
                     </SubMenu>
+                    <MenuItem
+            icon={<CgArrowLeftO style={{ fontSize: '32px'}}/>} 
+            onClick={handleNavigateHome}
+            style={{color: hoveredItem === 15 ? 'rgba(7,21,56,255)' : 'white' }}
+            onMouseEnter={() => setHoveredItem(15)}
+            onMouseLeave={() => setHoveredItem(null)}
+          >
+            <b>Volver al Inicio</b>
+          </MenuItem>
                 </Menu>
             </Sidebar>
             <div id="scene-container" style={{ flex: 1 }}>
             </div>
         </div>
-        </div>
+        
     );
 }
 
