@@ -61,14 +61,6 @@ const Cubo = () => {
             point.visible = pointTime >= startHour && pointTime <= endHour;
         };
 
-        /*
-        método de 2 o más caminos camino pero el con el formato:
-        {
-            "paths":[{
-                "points":[{x: numero}, {y:numero}, {z: "00:00:00"}]
-            }]
-        }
-        */
         let minZ = Infinity;
         let maxZ = -Infinity;
 
@@ -620,6 +612,17 @@ function generateRandomColor() {
             cube.current.children[0].material = material; // Actualizar el material del plane1
         });
     };
+    const eliminarImagen = () => {
+        // Asegúrate de que haya un objeto con imagen y que sea el primer hijo del cubo
+        if (cube.current.children.length > 0 && cube.current.children[0].material.map) {
+            cube.current.children[0].material.map.dispose();
+            cube.current.children[0].material.dispose();
+            cube.current.children[0].material = new THREE.MeshBasicMaterial({
+                transparent: true,
+                opacity: 0,
+            });
+        }
+    };
     //función para cargar json
     const loadPointsFromJSON = () => {
         const input = document.createElement("input");
@@ -640,9 +643,6 @@ function generateRandomColor() {
                                 cube.current.remove(child);
                             }
                         });
-                        if ("imageURL" in data) {
-                            cargarImagenDesdeURL(data.imageURL);
-                        }
                         addPointsFromJSON(data);
                         agregarLineas(data);
                     } catch (error) {
@@ -679,6 +679,7 @@ function generateRandomColor() {
                                 icon: "error",
                             });
                             allPathsInsideCube = false;
+                            eliminarImagen();
                             console.log(`El formato de hora en al menos uno de los puntos no es válido: ${point.z}`);
                         }
                     } else {
@@ -688,6 +689,7 @@ function generateRandomColor() {
                             icon: "error",
                         });
                         allPathsInsideCube = false;
+                        eliminarImagen();
                         console.log(`Coordenadas con puntos inválidos: x=${point.x}, y=${point.y}, z=${point.z}`);
                     }
                 });
@@ -723,6 +725,7 @@ function generateRandomColor() {
                                     icon: "error",
                                 });
                                 allPointsInsidePath = false;
+                                eliminarImagen();
                                 console.log(`Coordenadas con puntos inválidos: x=${point.x}, y=${point.y}, z=${point.z}`);
                             }
                         }
@@ -737,12 +740,16 @@ function generateRandomColor() {
         
                 if (allPathsInsideCube) {
                     cube.current.add(pathsGroup);
+                    if ("imageURL" in data) {
+                        cargarImagenDesdeURL(data.imageURL);
+                    }
                 } else {
                     swal({
                         title: "¡Error!",
                         text: "Al menos una de las trayectorias contiene coordenadas fuera del cubo.",
                         icon: "error",
                     });
+                    eliminarImagen();
                 }
             } else {
                 console.log("¡Advertencia! Al menos uno de los caminos contiene información incorrecta.");
@@ -753,6 +760,7 @@ function generateRandomColor() {
                 text: "Error al parsear el archivo JSON. Asegúrate de que el formato sea correcto.",
                 icon: "error",
             });
+            eliminarImagen();
         }
     };
 
