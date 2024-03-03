@@ -587,14 +587,14 @@ const existingLines = [];
     };
 
     // Función para generar un color aleatorio
-function generateRandomColor() {
-    const darkFactor = 0.5; // Puedes ajustar este valor según tus preferencias
-    return new THREE.Color(
-        Math.random() * darkFactor,
-        Math.random() * darkFactor,
-        Math.random() * darkFactor
-    );
-  }
+    function generateRandomColor() {
+        const darkFactor = 0.5; // Puedes ajustar este valor según tus preferencias
+        return new THREE.Color(
+            Math.random() * darkFactor,
+            Math.random() * darkFactor,
+            Math.random() * darkFactor
+        );
+    }
 
     const esLineaBorde = (linea) => {
         const colorLinea = linea.material.color;
@@ -604,25 +604,52 @@ function generateRandomColor() {
     const cargarImagenDesdeURL = (url) => {
         const textureLoader = new THREE.TextureLoader();
         textureLoader.load(url, (texture) => {
-            const material = new THREE.MeshBasicMaterial({
+            // Material para el plano 1
+            const material1 = new THREE.MeshBasicMaterial({
                 map: texture,
                 transparent: true,
                 opacity: 1,
-            }); // Establecer la opacidad a 1 (sin opacidad)
-            cube.current.children[0].material = material; // Actualizar el material del plane1
+            });
+    
+            // Material para el plano 2 (tipo espejo)
+            const material2 = new THREE.MeshBasicMaterial({
+                map: texture, // Usa la textura como mapa de entorno para el efecto de reflejo
+                transparent: true,
+                opacity: 1,
+                side: THREE.BackSide, // Muestra la parte posterior del material para el efecto de espejo
+            });
+    
+            // Actualizar el material de ambos planos (plane1 y plane2)
+            cube.current.children.forEach((child) => {
+                if (child instanceof THREE.Mesh && child.isPlane) {
+                    if (child === cube.current.children[0]) {
+                        child.material = material1;
+                    } else {
+                        child.material = material2;
+                    }
+                }
+            });
         });
     };
+    
     const eliminarImagen = () => {
-        // Asegúrate de que haya un objeto con imagen y que sea el primer hijo del cubo
-        if (cube.current.children.length > 0 && cube.current.children[0].material.map) {
-            cube.current.children[0].material.map.dispose();
-            cube.current.children[0].material.dispose();
-            cube.current.children[0].material = new THREE.MeshBasicMaterial({
-                transparent: true,
-                opacity: 0,
-            });
-        }
+        cube.current.children.forEach((child) => {
+            if (child instanceof THREE.Mesh && child.isPlane) {
+                // Eliminar textura del plano (tanto plano 1 como plano 2)
+                if (child.material.map) {
+                    child.material.map.dispose();
+                }
+                // Dispose de otros recursos asociados al material del plano
+                child.material.dispose();
+                // Configurar un nuevo material con opacidad 0
+                child.material = new THREE.MeshBasicMaterial({
+                    transparent: true,
+                    opacity: 0,
+                });
+            }
+        });
     };
+    
     //función para cargar json
     const loadPointsFromJSON = () => {
         const input = document.createElement("input");
