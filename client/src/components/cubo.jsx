@@ -609,6 +609,7 @@ const existingLines = [];
                 map: texture,
                 transparent: true,
                 opacity: 1,
+                side: THREE.DoubleSide,
             });
     
             // Actualizar el material de ambos planos (plane1 y plane2)
