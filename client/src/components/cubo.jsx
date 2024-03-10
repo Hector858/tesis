@@ -13,6 +13,7 @@ import { BiLineChart, BiSolidFilePdf, BiSolidCheckbox, BiSolidTimeFive } from "r
 import { FcScatterPlot } from "react-icons/fc";
 import { AiOutlineMenu, AiOutlineFundView, AiOutlineFile, AiOutlineExpand } from "react-icons/ai";
 import { WiTime1, WiTime9 } from "react-icons/wi";
+import { PiLineSegments } from "react-icons/pi";
 import { Sidebar, Menu, MenuItem, SubMenu } from 'react-pro-sidebar';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -46,7 +47,7 @@ const Cubo = () => {
     const options = useMemo(() => {
         if (jsonData && 'paths' in jsonData) {
           return jsonData.paths.map((path, index) => ({
-            label: `Path ${index + 1}`,
+            label: `Trayectoria ${index + 1}`,
             value: index,
             selected: pathVisibility[index] !== false,
           }));
@@ -761,7 +762,6 @@ const Cubo = () => {
                 reader.onload = async (e) => {
                     try {
                         const data = JSON.parse(e.target.result);
-                        setJsonData(data);
                         // Eliminar solo los elementos de puntos y líneas
                         cube.current.children.slice().forEach((child) => {
                             if (child instanceof THREE.Group) {
@@ -770,8 +770,14 @@ const Cubo = () => {
                                 cube.current.remove(child);
                             }
                         });
+                        setJsonData(data);
                         addPointsFromJSON(data);
                         agregarLineas(data);
+                        // Limpiar la selección de checkboxes antes de abrir el diálogo de carga de archivos
+                        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+                        checkboxes.forEach((checkbox) => {
+                        checkbox.checked = false;
+                        });
                     } catch (error) {
                         console.error("Error parsing JSON file:", error);
                         // Muestra una notificación en el navegador
@@ -1043,8 +1049,19 @@ const Cubo = () => {
                             <b>Zoom +</b>
                         </MenuItem>
                     </SubMenu>
-
-                    <SubMenu label="Filtro" icon={<BiSolidTimeFive style={{ fontSize: '32px', color: hoveredItem === 13 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 13 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(13)} onMouseLeave={() => setHoveredItem(null)}>
+                    <SubMenu label="Filtro Trayectorias" style={{ background: hoveredItem === 16 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 16 ? 'rgba(7,21,56,255)' : 'white' }} icon={<PiLineSegments style={{ fontSize: '32px', color: hoveredItem === 16 ? 'rgba(7,21,56,255)' : 'white' }} />} onMouseEnter={() => setHoveredItem(16)} onMouseLeave={() => setHoveredItem(null)}>
+                                {options.map((option) => (
+                                    <MenuItem key={option.value} style={{ background: hoveredItem === 17 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 17 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(17)} onMouseLeave={() => setHoveredItem(null)}>
+                                        <input
+                                            type="checkbox"
+                                            checked={option.isChecked}
+                                            onChange={() => handleCheckboxChange(option.value)}
+                                        />
+                                        <label style={{ color: hoveredItem === 17 ? 'rgba(7,21,56,255)' : 'white' }}>{option.label}</label>
+                                    </MenuItem>
+                                ))}
+                            </SubMenu>
+                    <SubMenu label="Filtro Hora" icon={<BiSolidTimeFive style={{ fontSize: '32px', color: hoveredItem === 13 ? 'rgba(7,21,56,255)' : 'white' }} />} style={{ color: hoveredItem === 13 ? 'rgba(7,21,56,255)' : 'white' }} onMouseEnter={() => setHoveredItem(13)} onMouseLeave={() => setHoveredItem(null)}>
 
                         <MenuItem style={{ background: hoveredItem === 9 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white' }} icon={<WiTime1 style={{ fontSize: '32px', color: hoveredItem === 9 ? 'rgba(7,21,56,255)' : 'white'}}/>} onMouseEnter={() => setHoveredItem(9)} onMouseLeave={() => setHoveredItem(null)}>
                             <select value={startTime} onChange={handleStartTimeChange} style={{ color:'black' }} >
@@ -1060,20 +1077,6 @@ const Cubo = () => {
                                 {generateTimeOptions1()}
                             </select>
                             <b> Fin</b>
-                        </MenuItem>
-                        <MenuItem style={{ background: hoveredItem === 16 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 16 ? 'rgba(7,21,56,255)' : 'white' }} icon={<WiTime9 style={{ fontSize: '32px', color: hoveredItem === 16 ? 'rgba(7,21,56,255)' : 'white'}}/>} onMouseEnter={() => setHoveredItem(16)} onMouseLeave={() => setHoveredItem(null)}>
-                        <ul>
-      {options.map((option) => (
-        <li key={option.value}>
-          <input
-            type="checkbox"
-            checked={option.isChecked}
-            onChange={() => handleCheckboxChange(option.value)}
-          />
-          <label>{option.label}</label>
-        </li>
-      ))}
-    </ul>
                         </MenuItem>
                     </SubMenu>
                     <MenuItem
