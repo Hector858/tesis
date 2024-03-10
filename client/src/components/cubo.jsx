@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { Line2 } from 'three/addons/lines/Line2.js';
@@ -39,6 +39,125 @@ const Cubo = () => {
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState(""); 
     const navigate = useNavigate();
+    //const [selectedPaths, setSelectedPaths] = useState([]);
+    const [jsonData, setJsonData] = useState(null);
+    const [pathVisibility, setPathVisibility] = useState({});
+
+    const options = useMemo(() => {
+        if (jsonData && 'paths' in jsonData) {
+          return jsonData.paths.map((path, index) => ({
+            label: `Path ${index + 1}`,
+            value: index,
+            selected: pathVisibility[index] !== false,
+          }));
+        }
+        return [];
+      }, [jsonData, pathVisibility]);
+
+      // Esta función actualiza la escena excluyendo la trayectoria seleccionada
+  const updateScene = (visibility) => {
+    // Almacena los valores originales de minZ y maxZ antes de realizar modificaciones
+  const originalZValues = jsonData.paths.reduce((acc, path) => {
+    const pathZValues = path.points.map((point) => {
+      const time = new Date(`1970-01-01T${point.z}`);
+      return time.getTime();
+    });
+    return [...acc, ...pathZValues];
+  }, []);
+
+  const originalMinZ = Math.min(...originalZValues);
+  const originalMaxZ = Math.max(...originalZValues);
+
+    // Elimina todos los elementos de puntos y líneas
+    cube.current.children.slice().forEach((child) => {
+      if (child instanceof THREE.Group) {
+        cube.current.remove(child);
+      } else if (child instanceof Line2) {
+        cube.current.remove(child);
+      }
+    });
+
+    // Vuelve a agregar los puntos y líneas excluyendo la trayectoria seleccionada
+    const pathsGroup = new THREE.Group();
+    jsonData.paths.forEach((path, i) => {
+      if (visibility[i]) {
+        // Agrega los puntos de la trayectoria
+        // ...
+        const pointsData = path.points;
+        const spheres = new THREE.Group();
+        const zRange = originalMaxZ - originalMinZ;
+        const curvePoints = pointsData.flatMap((point) => {
+            if (typeof point.x === 'number' && typeof point.y === 'number' && typeof point.z === 'string') {
+              const time = new Date(`1970-01-01T${point.z}`);
+              const normalizedZ = (time.getTime() - originalMinZ) / zRange;
+              const scaledZ = normalizedZ * 30; // Assuming the height of the cube is 10 units
+  
+              if (point.x <= 15 && point.y <= 15 && point.x >= -15 && point.y >= -15) {
+                const sphereGeometry = new THREE.SphereGeometry(0.35, 16, 16);
+                const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+                const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                // Almacenar los valores originales en userData
+                sphere.userData.originalValues = { x: point.x, y: point.y, z: point.z };
+                sphere.position.set(point.x, point.y, scaledZ);
+                sphere.userData.isPoint = true;
+                spheres.add(sphere);
+                pathsGroup.add(spheres);
+                return new THREE.Vector3(point.x, point.y, scaledZ);
+              } else {
+                return [];
+              }
+            } else {
+              return [];
+            }
+          });
+  
+          if (curvePoints.length >= 2) {
+            const curve = new THREE.CatmullRomCurve3(curvePoints);
+            const points = curve.getPoints(180);
+            const positions = points.flatMap(v => [v.x, v.y, v.z]);
+  
+            const colors = [];
+            const divisions = Math.round(100 * curvePoints.length);
+  
+            const lineColor = generateRandomColor();
+            for (let i = 0, l = divisions; i < l; i++) {
+              colors.push(lineColor.r, lineColor.g, lineColor.b);
+            }
+  
+            const geometry = new LineGeometry().setPositions(positions);
+            geometry.setColors(colors);
+  
+            const material = new LineMaterial({
+              linewidth: 5,
+              resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+              dashed: false,
+              transparent: true,
+              vertexColors: true,
+            });
+  
+            const thickLine = new Line2(geometry, material);
+            thickLine.computeLineDistances();
+  
+            cube.current.add(thickLine);
+            cube.current.add(pathsGroup);
+          }
+      }
+    });
+  };
+      
+  const handleCheckboxChange = (index) => {
+  setPathVisibility((prevVisibility) => {
+    const updatedVisibility = { ...prevVisibility };
+    updatedVisibility[index] = !updatedVisibility[index];
+
+    // Llama a la función para actualizar la escena al cambiar la visibilidad
+    updateScene(updatedVisibility);
+
+    return updatedVisibility;
+  });
+};
+
+      
 
     const handleNavigateHome = () => {
         navigate('/');
@@ -60,37 +179,26 @@ const Cubo = () => {
             const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
             point.visible = pointTime >= startHour && pointTime <= endHour;
         };
-
+        
         let minZ = Infinity;
         let maxZ = -Infinity;
-
-    cube.current.children.forEach((child) => {
-        if (child instanceof THREE.Group && child.children.length > 0) {
-            child.children.forEach((path) => {
-                if (path.userData.isPoint && path.parent instanceof THREE.Group) {
-                    const pointTime = new Date(`1970-01-01T${path.userData.originalValues.z}`).getTime();
+    // Asegúrate de que jsonData sea válido antes de acceder a sus propiedades
+    if (jsonData && jsonData.paths) {
+        // Itera sobre las trayectorias del JSON
+        jsonData.paths.forEach((path) => {
+            if (path.points) {
+                path.points.forEach((point) => {
+                    const pointTime = new Date(`1970-01-01T${point.z}`).getTime();
                     minZ = Math.min(minZ, pointTime);
                     maxZ = Math.max(maxZ, pointTime);
-                } else if (path instanceof THREE.Group && path.children.length > 0) {
-                    path.children.forEach((point) => {
-                        if (point.userData.isPoint && point.parent instanceof THREE.Group) {
-                            const pointTime = new Date(`1970-01-01T${point.userData.originalValues.z}`).getTime();
-                            minZ = Math.min(minZ, pointTime);
-                            maxZ = Math.max(maxZ, pointTime);
-                        }
-                    });
-                }
-            });
-        } else if (child instanceof Line2 && !esLineaBorde(child)) {
-            const pointsArray = child.geometry.attributes.position.array;
-            for (let i = 2; i < pointsArray.length; i += 3) {
-                const pointTime = new Date(`1970-01-01T${pointsArray[i]}:00`).getTime();
-                minZ = Math.min(minZ, pointTime);
-                maxZ = Math.max(maxZ, pointTime);
+                });
             }
-        }
-    });
-const addLinesForVisiblePaths = (pathsData) => {
+        });
+    } else {
+        console.error("jsonData o jsonData.paths es nulo o indefinido");
+    }
+
+    const addLinesForVisiblePaths = (pathsData) => {
     // Obtener el mínimo y máximo global antes de recorrer los caminos
     pathsData.forEach((path) => {
         // Filtra y obtiene el array de los puntos visibles
@@ -146,9 +254,9 @@ const addLinesForVisiblePaths = (pathsData) => {
             cube.current.add(thickLine);
         }
     });
-};
+    };
 
-const existingLines = [];
+    const existingLines = [];
     
         // Actualizar la visibilidad de los puntos dentro de varios caminos (paths)
         cube.current.children.forEach((child) => {
@@ -653,6 +761,7 @@ const existingLines = [];
                 reader.onload = async (e) => {
                     try {
                         const data = JSON.parse(e.target.result);
+                        setJsonData(data);
                         // Eliminar solo los elementos de puntos y líneas
                         cube.current.children.slice().forEach((child) => {
                             if (child instanceof THREE.Group) {
@@ -870,6 +979,18 @@ const existingLines = [];
         actualizarFiltroHora(startTime, endTime);
     }, [startTime, endTime]);
 
+    useEffect(() => {
+        // Inicializar pathVisibility con todas las trayectorias visibles
+        if (jsonData && 'paths' in jsonData) {
+          const initialVisibility = jsonData.paths.reduce((acc, _, index) => {
+            acc[index] = true;
+            return acc;
+          }, {});
+          setPathVisibility(initialVisibility);
+        }
+      }, [jsonData]);
+      
+
     return (
 
         <div style={{ display: 'flex' }} ref={mainContainer}>
@@ -939,6 +1060,20 @@ const existingLines = [];
                                 {generateTimeOptions1()}
                             </select>
                             <b> Fin</b>
+                        </MenuItem>
+                        <MenuItem style={{ background: hoveredItem === 16 ? 'white' : 'rgba(7,21,56,255)', color: hoveredItem === 16 ? 'rgba(7,21,56,255)' : 'white' }} icon={<WiTime9 style={{ fontSize: '32px', color: hoveredItem === 16 ? 'rgba(7,21,56,255)' : 'white'}}/>} onMouseEnter={() => setHoveredItem(16)} onMouseLeave={() => setHoveredItem(null)}>
+                        <ul>
+      {options.map((option) => (
+        <li key={option.value}>
+          <input
+            type="checkbox"
+            checked={option.isChecked}
+            onChange={() => handleCheckboxChange(option.value)}
+          />
+          <label>{option.label}</label>
+        </li>
+      ))}
+    </ul>
                         </MenuItem>
                     </SubMenu>
                     <MenuItem
